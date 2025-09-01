@@ -3,6 +3,91 @@ import { Message } from '../components/ChatMessage';
 const API_KEY = import.meta.env.VITE_OPENROUTER_API_KEY;
 const API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
+// Fallback responses for when API is unavailable
+const fallbackResponses: Record<string, (prompt: string) => string> = {
+  chat: (prompt: string) => `I understand you're asking about: "${prompt}". While I'm currently unable to connect to the AI service, I'd be happy to help once the connection is restored. Please try again in a moment.`,
+  
+  code: (prompt: string) => {
+    // Generate basic code examples based on common requests
+    if (prompt.toLowerCase().includes('react') || prompt.toLowerCase().includes('component')) {
+      return `Here's a basic React component example:
+
+\`\`\`jsx
+import React, { useState } from 'react';
+
+function MyComponent() {
+  const [count, setCount] = useState(0);
+
+  return (
+    <div className="p-4">
+      <h2 className="text-xl font-bold mb-4">Counter Component</h2>
+      <p className="mb-4">Count: {count}</p>
+      <button 
+        onClick={() => setCount(count + 1)}
+        className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+      >
+        Increment
+      </button>
+    </div>
+  );
+}
+
+export default MyComponent;
+\`\`\`
+
+This is a basic example. For more specific code generation, please try again when the AI service is available.`;
+    }
+    
+    if (prompt.toLowerCase().includes('function') || prompt.toLowerCase().includes('javascript')) {
+      return `Here's a JavaScript function example:
+
+\`\`\`javascript
+// Example function based on your request
+function processData(data) {
+  // Add your logic here
+  return data.map(item => ({
+    ...item,
+    processed: true,
+    timestamp: new Date()
+  }));
+}
+
+// Usage example
+const result = processData([
+  { id: 1, name: 'Item 1' },
+  { id: 2, name: 'Item 2' }
+]);
+
+console.log(result);
+\`\`\`
+
+This is a basic example. For more specific code generation, please try again when the AI service is available.`;
+    }
+    
+    return `I'd love to help you with code generation! Here's a basic template to get you started:
+
+\`\`\`javascript
+// Your code will go here
+function yourFunction() {
+  // Implementation details
+  console.log('Hello, World!');
+}
+
+yourFunction();
+\`\`\`
+
+For more specific code generation based on your request: "${prompt}", please try again when the AI service is available.`;
+  },
+  
+  design: (prompt: string) => `I'd help you create beautiful UI designs! For your request about "${prompt}", I would typically provide detailed design guidance, component suggestions, and styling recommendations. Please try again when the AI service is available.`,
+  
+  content: (prompt: string) => `I'd help you create engaging content! For your request about "${prompt}", I would typically provide well-structured writing, copy suggestions, and content strategies. Please try again when the AI service is available.`,
+  
+  database: (prompt: string) => `I'd help you with database design and queries! For your request about "${prompt}", I would typically provide schema designs, optimized queries, and database best practices. Please try again when the AI service is available.`,
+  
+  automation: (prompt: string) => `I'd help you create automation scripts! For your request about "${prompt}", I would typically provide workflow automation, scripts, and process optimization solutions. Please try again when the AI service is available.`
+};
+
 // Rate limiting state
 let lastRequestTime = 0;
 const MIN_REQUEST_INTERVAL = 2000; // 2 seconds between requests
@@ -68,7 +153,11 @@ export async function generateAIResponse(prompt: string, mode: string): Promise<
 
         if (response.ok) {
           const data = await response.json();
-          const aiResponse = data.choices[0]?.message?.content || "I apologize, but I couldn't generate a response. Please try again.";
+          const aiResponse = data.choices[0]?.message?.content;
+          
+          if (!aiResponse || aiResponse.trim() === '') {
+            throw new Error('Empty response from API');
+          }
 
           // Check if the response contains code
           const hasCode = aiResponse.includes('```');
@@ -180,8 +269,79 @@ export async function generateAIResponse(prompt: string, mode: string): Promise<
     }
 
     // If we get here, all retries failed
-    throw lastError || new Error('All retry attempts failed');
+    console.warn('API unavailable, using fallback response');
+    
+    // Use fallback response instead of throwing error
+    const fallbackResponse = fallbackResponses[mode] ? fallbackResponses[mode](prompt) : fallbackResponses.chat(prompt);
+    
+    // Check if fallback response contains code
+    const hasCode = fallbackResponse.includes('```');
+    let files: Array<{ name: string; content: string; language: string }> = [];
 
+    if (hasCode) {
+      // Extract code blocks from fallback response
+      const codeBlocks = fallbackResponse.match(/```(\w+)?\n([\s\S]*?)```/g);
+      if (codeBlocks) {
+        codeBlocks.forEach((block, index) => {
+          const match = block.match(/```(\w+)?\n([\s\S]*?)```/);
+          if (match) {
+            const language = match[1] || 'text';
+            const content = match[2].trim();
+            
+            const extensions: Record<string, string> = {
+              javascript: 'js',
+              jsx: 'jsx',
+              typescript: 'ts',
+              tsx: 'tsx',
+              html: 'html',
+              css: 'css',
+              python: 'py',
+              java: 'java',
+              cpp: 'cpp',
+              c: 'c',
+              php: 'php',
+              ruby: 'rb',
+              go: 'go',
+              rust: 'rs',
+              sql: 'sql',
+              json: 'json',
+              xml: 'xml',
+              yaml: 'yml'
+            };
+
+            const extension = extensions[language.toLowerCase()] || 'txt';
+            let filename = `example_${index + 1}.${extension}`;
+            
+            if (language.toLowerCase() === 'jsx' || language.toLowerCase() === 'tsx') {
+              filename = 'Component.jsx';
+            } else if (language.toLowerCase() === 'javascript') {
+              filename = 'script.js';
+            } else if (language.toLowerCase() === 'html') {
+              filename = 'index.html';
+            } else if (language.toLowerCase() === 'css') {
+              filename = 'styles.css';
+            }
+            
+            files.push({
+              name: filename,
+              content: content,
+              language: language
+            });
+          }
+        });
+      }
+    }
+
+    return {
+      id: Date.now().toString(),
+      type: 'assistant',
+      content: fallbackResponse,
+      timestamp: new Date(),
+      metadata: {
+        mode: mode.charAt(0).toUpperCase() + mode.slice(1),
+        files: files.length > 0 ? files : undefined
+      }
+    };
   } catch (error) {
     console.error('AI Response Error:', error);
     
@@ -197,14 +357,61 @@ export async function generateAIResponse(prompt: string, mode: string): Promise<
     } else if ((error as Error).name === 'TypeError') {
       errorMessage = "Unable to connect to the AI service. Please check your internet connection and try again.";
     }
+
+    // If it's a critical error, use fallback response
+    const fallbackResponse = fallbackResponses[mode] ? fallbackResponses[mode](prompt) : fallbackResponses.chat(prompt);
     
+    // Check if fallback response contains code
+    const hasCode = fallbackResponse.includes('```');
+    let files: Array<{ name: string; content: string; language: string }> = [];
+
+    if (hasCode) {
+      // Extract code blocks from fallback response
+      const codeBlocks = fallbackResponse.match(/```(\w+)?\n([\s\S]*?)```/g);
+      if (codeBlocks) {
+        codeBlocks.forEach((block, index) => {
+          const match = block.match(/```(\w+)?\n([\s\S]*?)```/);
+          if (match) {
+            const language = match[1] || 'text';
+            const content = match[2].trim();
+            
+            const extensions: Record<string, string> = {
+              javascript: 'js',
+              jsx: 'jsx',
+              typescript: 'ts',
+              tsx: 'tsx',
+              html: 'html',
+              css: 'css',
+              python: 'py'
+            };
+
+            const extension = extensions[language.toLowerCase()] || 'txt';
+            let filename = `fallback_${index + 1}.${extension}`;
+            
+            if (language.toLowerCase() === 'jsx') {
+              filename = 'Component.jsx';
+            } else if (language.toLowerCase() === 'javascript') {
+              filename = 'script.js';
+            }
+            
+            files.push({
+              name: filename,
+              content: content,
+              language: language
+            });
+          }
+        });
+      }
+    }
+
     return {
       id: Date.now().toString(),
       type: 'assistant',
-      content: errorMessage,
+      content: fallbackResponse,
       timestamp: new Date(),
       metadata: {
-        mode: mode.charAt(0).toUpperCase() + mode.slice(1)
+        mode: mode.charAt(0).toUpperCase() + mode.slice(1),
+        files: files.length > 0 ? files : undefined
       }
     };
   }

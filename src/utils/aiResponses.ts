@@ -123,10 +123,11 @@ export async function generateAIResponse(prompt: string, mode: string): Promise<
 
     // Retry logic for handling rate limits and temporary failures
     let lastError: Error | null = null;
+    let response: Response | undefined;
     
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       try {
-        const response = await fetch(API_URL, {
+        response = await fetch(API_URL, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${API_KEY}`,
@@ -262,7 +263,7 @@ export async function generateAIResponse(prompt: string, mode: string): Promise<
         }
         
         // If it's not a retryable error, break
-        if ((error as Error).message !== 'RATE_LIMIT_EXCEEDED' && response.status !== 429) {
+        if ((error as Error).message !== 'RATE_LIMIT_EXCEEDED' && response && response.status !== 429) {
           break;
         }
       }

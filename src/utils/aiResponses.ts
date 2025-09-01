@@ -512,7 +512,7 @@ import React from 'react';
 
 function PricingCard({ title, price, features, highlighted = false }) {
   return (
-    <div className={`relative p-8 rounded-2xl border-2 transition-all duration-300 hover:scale-105 ${
+    <div className={\`relative p-8 rounded-2xl border-2 transition-all duration-300 hover:scale-105 ${
       highlighted 
         ? 'border-purple-500 bg-gradient-to-br from-purple-50 to-pink-50 shadow-xl' 
         : 'border-gray-200 bg-white hover:border-purple-300 shadow-lg'

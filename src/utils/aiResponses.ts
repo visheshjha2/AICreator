@@ -1,6 +1,6 @@
 import { Message } from '../components/ChatMessage';
 
-const API_KEY = import.meta.env.VITE_OPENROUTER_API_KEY;
+const API_KEY = import.meta.env.VITE_OPENROUTER_API_KEY || '';
 const API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
 // Fallback responses for when API is unavailable
@@ -101,6 +101,12 @@ const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export async function generateAIResponse(prompt: string, mode: string): Promise<Message> {
   try {
+    // Check if API key is available
+    if (!API_KEY || API_KEY.trim() === '') {
+      console.warn('No API key configured, using enhanced fallback responses');
+      return generateEnhancedFallbackResponse(prompt, mode);
+    }
+
     // Rate limiting: ensure minimum time between requests
     const now = Date.now();
     const timeSinceLastRequest = now - lastRequestTime;
@@ -273,76 +279,7 @@ export async function generateAIResponse(prompt: string, mode: string): Promise<
     console.warn('API unavailable, using fallback response');
     
     // Use fallback response instead of throwing error
-    const fallbackResponse = fallbackResponses[mode] ? fallbackResponses[mode](prompt) : fallbackResponses.chat(prompt);
-    
-    // Check if fallback response contains code
-    const hasCode = fallbackResponse.includes('```');
-    let files: Array<{ name: string; content: string; language: string }> = [];
-
-    if (hasCode) {
-      // Extract code blocks from fallback response
-      const codeBlocks = fallbackResponse.match(/```(\w+)?\n([\s\S]*?)```/g);
-      if (codeBlocks) {
-        codeBlocks.forEach((block, index) => {
-          const match = block.match(/```(\w+)?\n([\s\S]*?)```/);
-          if (match) {
-            const language = match[1] || 'text';
-            const content = match[2].trim();
-            
-            const extensions: Record<string, string> = {
-              javascript: 'js',
-              jsx: 'jsx',
-              typescript: 'ts',
-              tsx: 'tsx',
-              html: 'html',
-              css: 'css',
-              python: 'py',
-              java: 'java',
-              cpp: 'cpp',
-              c: 'c',
-              php: 'php',
-              ruby: 'rb',
-              go: 'go',
-              rust: 'rs',
-              sql: 'sql',
-              json: 'json',
-              xml: 'xml',
-              yaml: 'yml'
-            };
-
-            const extension = extensions[language.toLowerCase()] || 'txt';
-            let filename = `example_${index + 1}.${extension}`;
-            
-            if (language.toLowerCase() === 'jsx' || language.toLowerCase() === 'tsx') {
-              filename = 'Component.jsx';
-            } else if (language.toLowerCase() === 'javascript') {
-              filename = 'script.js';
-            } else if (language.toLowerCase() === 'html') {
-              filename = 'index.html';
-            } else if (language.toLowerCase() === 'css') {
-              filename = 'styles.css';
-            }
-            
-            files.push({
-              name: filename,
-              content: content,
-              language: language
-            });
-          }
-        });
-      }
-    }
-
-    return {
-      id: Date.now().toString(),
-      type: 'assistant',
-      content: fallbackResponse,
-      timestamp: new Date(),
-      metadata: {
-        mode: mode.charAt(0).toUpperCase() + mode.slice(1),
-        files: files.length > 0 ? files : undefined
-      }
-    };
+    return generateEnhancedFallbackResponse(prompt, mode);
   } catch (error) {
     console.error('AI Response Error:', error);
     
@@ -360,60 +297,80 @@ export async function generateAIResponse(prompt: string, mode: string): Promise<
     }
 
     // If it's a critical error, use fallback response
-    const fallbackResponse = fallbackResponses[mode] ? fallbackResponses[mode](prompt) : fallbackResponses.chat(prompt);
-    
-    // Check if fallback response contains code
-    const hasCode = fallbackResponse.includes('```');
-    let files: Array<{ name: string; content: string; language: string }> = [];
-
-    if (hasCode) {
-      // Extract code blocks from fallback response
-      const codeBlocks = fallbackResponse.match(/```(\w+)?\n([\s\S]*?)```/g);
-      if (codeBlocks) {
-        codeBlocks.forEach((block, index) => {
-          const match = block.match(/```(\w+)?\n([\s\S]*?)```/);
-          if (match) {
-            const language = match[1] || 'text';
-            const content = match[2].trim();
-            
-            const extensions: Record<string, string> = {
-              javascript: 'js',
-              jsx: 'jsx',
-              typescript: 'ts',
-              tsx: 'tsx',
-              html: 'html',
-              css: 'css',
-              python: 'py'
-            };
-
-            const extension = extensions[language.toLowerCase()] || 'txt';
-            let filename = `fallback_${index + 1}.${extension}`;
-            
-            if (language.toLowerCase() === 'jsx') {
-              filename = 'Component.jsx';
-            } else if (language.toLowerCase() === 'javascript') {
-              filename = 'script.js';
-            }
-            
-            files.push({
-              name: filename,
-              content: content,
-              language: language
-            });
-          }
-        });
-      }
-    }
-
-    return {
-      id: Date.now().toString(),
-      type: 'assistant',
-      content: fallbackResponse,
-      timestamp: new Date(),
-      metadata: {
-        mode: mode.charAt(0).toUpperCase() + mode.slice(1),
-        files: files.length > 0 ? files : undefined
-      }
-    };
+    return generateEnhancedFallbackResponse(prompt, mode);
   }
+}
+
+// Enhanced fallback response generator
+function generateEnhancedFallbackResponse(prompt: string, mode: string): Message {
+  const fallbackResponse = fallbackResponses[mode] ? fallbackResponses[mode](prompt) : fallbackResponses.chat(prompt);
+  
+  // Check if fallback response contains code
+  const hasCode = fallbackResponse.includes('```');
+  let files: Array<{ name: string; content: string; language: string }> = [];
+
+  if (hasCode) {
+    // Extract code blocks from fallback response
+    const codeBlocks = fallbackResponse.match(/```(\w+)?\n([\s\S]*?)```/g);
+    if (codeBlocks) {
+      codeBlocks.forEach((block, index) => {
+        const match = block.match(/```(\w+)?\n([\s\S]*?)```/);
+        if (match) {
+          const language = match[1] || 'text';
+          const content = match[2].trim();
+          
+          const extensions: Record<string, string> = {
+            javascript: 'js',
+            jsx: 'jsx',
+            typescript: 'ts',
+            tsx: 'tsx',
+            html: 'html',
+            css: 'css',
+            python: 'py',
+            java: 'java',
+            cpp: 'cpp',
+            c: 'c',
+            php: 'php',
+            ruby: 'rb',
+            go: 'go',
+            rust: 'rs',
+            sql: 'sql',
+            json: 'json',
+            xml: 'xml',
+            yaml: 'yml'
+          };
+
+          const extension = extensions[language.toLowerCase()] || 'txt';
+          let filename = `generated_${index + 1}.${extension}`;
+          
+          if (language.toLowerCase() === 'jsx' || language.toLowerCase() === 'tsx') {
+            filename = 'Component.jsx';
+          } else if (language.toLowerCase() === 'javascript') {
+            filename = 'script.js';
+          } else if (language.toLowerCase() === 'html') {
+            filename = 'index.html';
+          } else if (language.toLowerCase() === 'css') {
+            filename = 'styles.css';
+          }
+          
+          files.push({
+            name: filename,
+            content: content,
+            language: language
+          });
+        }
+      });
+    }
+  }
+
+  return {
+    id: Date.now().toString(),
+    type: 'assistant',
+    content: fallbackResponse,
+    timestamp: new Date(),
+    metadata: {
+      mode: mode.charAt(0).toUpperCase() + mode.slice(1),
+      files: files.length > 0 ? files : undefined
+    }
+  };
 }

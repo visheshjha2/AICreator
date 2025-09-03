@@ -32,19 +32,36 @@ function App() {
   }, [messages, isGenerating]);
 
   useEffect(() => {
-    // Check for existing user on app load
-    const currentUser = localAuth.getCurrentUser();
-    setUser(currentUser);
-    setLoading(false);
-    
-    if (currentUser) {
-      loadUserChats(currentUser.id);
-    } else {
-      setChats([]);
-      setActiveChat(null);
-      setMessages([]);
-    }
+    // Initialize app with error handling
+    const initializeApp = async () => {
+      try {
+        const currentUser = localAuth.getCurrentUser();
+        setUser(currentUser);
+        
+        if (currentUser) {
+          loadUserChats(currentUser.id);
+        } else {
+          setChats([]);
+          setActiveChat(null);
+          setMessages([getWelcomeMessage('chat')]);
+        }
+      } catch (error) {
+        console.error('Error initializing app:', error);
+        setMessages([getWelcomeMessage('chat')]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initializeApp();
   }, []);
+
+  useEffect(() => {
+    // Initialize with welcome message if no messages
+    if (messages.length === 0) {
+      setMessages([getWelcomeMessage(activeMode)]);
+    }
+  }, [activeMode]);
 
   const loadUserChats = (userId: string) => {
     try {

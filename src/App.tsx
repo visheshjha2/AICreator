@@ -22,6 +22,7 @@ function App() {
   const [chats, setChats] = useState<ChatSession[]>([]);
   const [activeChat, setActiveChat] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -147,6 +148,7 @@ function App() {
   const handleNewChat = () => {
     setMessages([getWelcomeMessage(activeMode)]);
     setActiveChat(null);
+    setIsMobileMenuOpen(false); // Close mobile menu when starting new chat
   };
 
   const handleModeChange = async (mode: string) => {
@@ -164,6 +166,7 @@ function App() {
     setActiveMode(mode);
     setMessages([getWelcomeMessage(mode)]);
     setActiveChat(null);
+    setIsMobileMenuOpen(false); // Close mobile menu when changing mode
   };
 
   const handleChatSelect = (chatId: string) => {
@@ -171,6 +174,7 @@ function App() {
       const chatMessages = localChatStorage.getChatMessages(chatId);
       setMessages(chatMessages);
       setActiveChat(chatId);
+      setIsMobileMenuOpen(false); // Close mobile menu when selecting chat
     } catch (error) {
       console.error('Error loading chat:', error);
     }
@@ -209,6 +213,10 @@ function App() {
     setAuthModalOpen(false);
   };
 
+  const handleMobileMenuToggle = () => {
+    setIsMobileMenuOpen(!isMobileMenuOpen);
+  };
+
   if (loading) {
     return (
       <div className="h-screen flex items-center justify-center">
@@ -227,9 +235,11 @@ function App() {
         user={user}
         onAuthClick={() => setAuthModalOpen(true)}
         onSignOut={handleSignOut}
+        onMobileMenuToggle={handleMobileMenuToggle}
+        isMobileMenuOpen={isMobileMenuOpen}
       />
       
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden relative">
         <Sidebar 
           activeMode={activeMode} 
           onModeChange={handleModeChange}
@@ -238,16 +248,19 @@ function App() {
           onChatSelect={handleChatSelect}
           onChatDelete={handleChatDelete}
           isAuthenticated={!!user}
+          isMobileMenuOpen={isMobileMenuOpen}
+          onMobileMenuClose={() => setIsMobileMenuOpen(false)}
+          onNewChat={handleNewChat}
         />
         
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col min-w-0">
           {user ? (
             <>
-              <div className="flex-1 overflow-y-auto">
+              <div className="flex-1 overflow-y-auto px-2 sm:px-0">
                 <div className="max-w-4xl mx-auto">
                   {messages.length === 0 ? (
                     <div className="flex items-center justify-center h-full">
-                      <div className="text-center">
+                      <div className="text-center p-4">
                         <h2 className="text-2xl font-bold text-gray-800 mb-4">
                           Welcome to AI Creator
                         </h2>
@@ -270,20 +283,20 @@ function App() {
             </>
           ) : (
             <div className="flex-1 flex items-center justify-center">
-              <div className="text-center max-w-md mx-auto p-8">
+              <div className="text-center max-w-md mx-auto p-4 sm:p-8">
                 <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-6">
                   <span className="text-2xl">🤖</span>
                 </div>
-                <h2 className="text-3xl font-bold text-gray-800 mb-4">
+                <h2 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-4">
                   Welcome to AI Creator
                 </h2>
-                <p className="text-gray-600 mb-8">
+                <p className="text-sm sm:text-base text-gray-600 mb-8">
                   Sign in to start creating amazing content with AI assistance. 
                   Build anything from code to creative content with our powerful AI tools.
                 </p>
                 <button
                   onClick={() => setAuthModalOpen(true)}
-                  className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-8 py-3 rounded-lg hover:from-purple-600 hover:to-pink-600 transition-all duration-200 shadow-lg hover:shadow-xl"
+                  className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-6 sm:px-8 py-3 rounded-lg hover:from-purple-600 hover:to-pink-600 transition-all duration-200 shadow-lg hover:shadow-xl active:scale-95 touch-manipulation"
                 >
                   Get Started
                 </button>

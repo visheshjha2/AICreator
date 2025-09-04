@@ -60,15 +60,15 @@ export default function AuthModal({ isOpen, onClose, mode, onModeChange, onAuthS
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-md">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold text-gray-900">
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
             {mode === 'login' ? 'Sign In' : 'Sign Up'}
           </h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
+            className="text-gray-400 hover:text-gray-600 p-1 touch-manipulation"
           >
             <X className="w-6 h-6" />
           </button>
@@ -86,7 +86,7 @@ export default function AuthModal({ isOpen, onClose, mode, onModeChange, onAuthS
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-base"
                   placeholder="Enter your full name"
                   required
                 />
@@ -138,7 +138,7 @@ export default function AuthModal({ isOpen, onClose, mode, onModeChange, onAuthS
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white py-2 px-4 rounded-lg hover:from-purple-600 hover:to-pink-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+            className="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white py-3 px-4 rounded-lg hover:from-purple-600 hover:to-pink-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 active:scale-95 touch-manipulation min-h-[44px]"
           >
             {loading ? 'Please wait...' : (mode === 'login' ? 'Sign In' : 'Sign Up')}
           </button>
@@ -149,7 +149,7 @@ export default function AuthModal({ isOpen, onClose, mode, onModeChange, onAuthS
             {mode === 'login' ? "Don't have an account?" : "Already have an account?"}
             <button
               onClick={() => onModeChange(mode === 'login' ? 'signup' : 'login')}
-              className="ml-1 text-purple-600 hover:text-purple-700 font-medium"
+              className="ml-1 text-purple-600 hover:text-purple-700 font-medium touch-manipulation"
             >
               {mode === 'login' ? 'Sign Up' : 'Sign In'}
             </button>

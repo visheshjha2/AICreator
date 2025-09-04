@@ -58,7 +58,7 @@ export default function ChatHistory({ chats, activeChat, onChatSelect, onChatDel
         chats.map((chat) => (
           <div
             key={chat.id}
-            className={`group relative p-3 rounded-lg cursor-pointer transition-all duration-200 ${
+            className={`group relative p-3 rounded-lg cursor-pointer transition-all duration-200 active:scale-95 ${
               activeChat === chat.id
                 ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white'
                 : 'hover:bg-white hover:shadow-sm text-gray-700'
@@ -68,7 +68,7 @@ export default function ChatHistory({ chats, activeChat, onChatSelect, onChatDel
             <div className="flex items-start justify-between">
               <div className="flex-1 min-w-0">
                 <h4 className="font-medium text-sm mb-1">
-                  {truncateText(chat.title, 25)}
+                  {truncateText(chat.title, 30)}
                 </h4>
                 <p className={`text-xs mb-1 ${
                   activeChat === chat.id ? 'text-white/80' : 'text-gray-500'
@@ -95,7 +95,7 @@ export default function ChatHistory({ chats, activeChat, onChatSelect, onChatDel
                   e.stopPropagation();
                   onChatDelete(chat.id);
                 }}
-                className={`opacity-0 group-hover:opacity-100 p-1 rounded transition-opacity ${
+                className={`opacity-0 group-hover:opacity-100 p-2 rounded transition-opacity touch-manipulation ${
                   activeChat === chat.id
                     ? 'hover:bg-white/20 text-white'
                     : 'hover:bg-red-100 text-red-600'

@@ -66,7 +66,7 @@ export default function ChatMessage({ message }: ChatMessageProps) {
   };
 
   return (
-    <div className={`flex gap-3 sm:gap-4 p-4 sm:p-6 ${message.type === 'assistant' ? 'bg-gray-50/50' : ''}`}>
+    <div className={`flex gap-4 p-6 ${message.type === 'assistant' ? 'bg-gray-50/50' : ''}`}>
       <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
         message.type === 'assistant' 
           ? 'bg-gradient-to-r from-purple-500 to-pink-500' 
@@ -105,7 +105,7 @@ export default function ChatMessage({ message }: ChatMessageProps) {
               language={message.metadata.codeLanguage || 'text'} 
             />
           ) : (
-            <p className="whitespace-pre-wrap text-gray-700 text-sm sm:text-base leading-relaxed">{message.content}</p>
+            <p className="whitespace-pre-wrap text-gray-700">{message.content}</p>
           )}
         </div>
         
@@ -114,7 +114,7 @@ export default function ChatMessage({ message }: ChatMessageProps) {
             <h4 className="text-sm font-semibold text-gray-700">Generated Files:</h4>
             {message.metadata.files.map((file, index) => (
               <div key={index} className="border border-gray-200 rounded-lg">
-                <div className="flex items-center justify-between p-2 sm:p-3 bg-gray-50 border-b border-gray-200">
+                <div className="flex items-center justify-between p-3 bg-gray-50 border-b border-gray-200">
                   <span className="font-mono text-sm text-gray-700">{file.name}</span>
                   <div className="flex gap-2">
                     <button
@@ -131,7 +131,7 @@ export default function ChatMessage({ message }: ChatMessageProps) {
             ))}
             <button
               onClick={() => downloadFiles(message.metadata?.files || [])}
-              className="flex items-center gap-2 px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors active:scale-95 touch-manipulation"
+              className="flex items-center gap-2 px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
             >
               <Download className="w-4 h-4" />
               Download All Files
@@ -140,10 +140,10 @@ export default function ChatMessage({ message }: ChatMessageProps) {
         )}
         
         {message.type === 'assistant' && (
-          <div className="flex items-center gap-1 sm:gap-2 mt-4 relative">
+          <div className="flex items-center gap-2 mt-4 relative">
             <button 
               onClick={handleLike}
-              className={`relative p-2 rounded-full transition-all duration-200 touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center ${
+              className={`relative p-2 rounded-full transition-all duration-200 ${
                 liked 
                   ? 'text-green-600 bg-green-100 transform scale-110' 
                   : 'text-gray-400 hover:text-green-600 hover:bg-green-50'
@@ -164,7 +164,7 @@ export default function ChatMessage({ message }: ChatMessageProps) {
             
             <button 
               onClick={handleDislike}
-              className={`relative p-2 rounded-full transition-all duration-200 touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center ${
+              className={`relative p-2 rounded-full transition-all duration-200 ${
                 disliked 
                   ? 'text-red-600 bg-red-100 transform scale-110' 
                   : 'text-gray-400 hover:text-red-600 hover:bg-red-50'
@@ -180,7 +180,7 @@ export default function ChatMessage({ message }: ChatMessageProps) {
             
             <button 
               onClick={() => copyToClipboard(message.content)}
-              className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-all duration-200 touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center"
+              className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-all duration-200"
             >
               <Copy className="w-4 h-4" />
             </button>

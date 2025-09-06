@@ -22,6 +22,7 @@ function App() {
   const [chats, setChats] = useState<ChatSession[]>([]);
   const [activeChat, setActiveChat] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -149,6 +150,14 @@ function App() {
     setActiveChat(null);
   };
 
+  const handleToggleMobileMenu = () => {
+    setShowMobileMenu(!showMobileMenu);
+  };
+
+  const handleCloseMobileMenu = () => {
+    setShowMobileMenu(false);
+  };
+
   const handleModeChange = async (mode: string) => {
     // Save current chat if there are messages and user is logged in
     if (user && messages.length > 1 && !activeChat) {
@@ -164,6 +173,7 @@ function App() {
     setActiveMode(mode);
     setMessages([getWelcomeMessage(mode)]);
     setActiveChat(null);
+    setShowMobileMenu(false); // Close mobile menu when mode changes
   };
 
   const handleChatSelect = (chatId: string) => {
@@ -227,6 +237,8 @@ function App() {
         user={user}
         onAuthClick={() => setAuthModalOpen(true)}
         onSignOut={handleSignOut}
+        showMobileMenu={showMobileMenu}
+        onToggleMobileMenu={handleToggleMobileMenu}
       />
       
       <div className="flex-1 flex overflow-hidden">
@@ -238,6 +250,8 @@ function App() {
           onChatSelect={handleChatSelect}
           onChatDelete={handleChatDelete}
           isAuthenticated={!!user}
+          showMobileMenu={showMobileMenu}
+          onCloseMobileMenu={handleCloseMobileMenu}
         />
         
         <div className="flex-1 flex flex-col">
@@ -270,20 +284,20 @@ function App() {
             </>
           ) : (
             <div className="flex-1 flex items-center justify-center">
-              <div className="text-center max-w-md mx-auto p-8">
+              <div className="text-center max-w-md mx-auto p-4 md:p-8">
                 <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-6">
                   <span className="text-2xl">🤖</span>
                 </div>
-                <h2 className="text-3xl font-bold text-gray-800 mb-4">
+                <h2 className="text-2xl md:text-3xl font-bold text-gray-800 mb-4">
                   Welcome to AI Creator
                 </h2>
-                <p className="text-gray-600 mb-8">
+                <p className="text-gray-600 mb-8 text-sm md:text-base">
                   Sign in to start creating amazing content with AI assistance. 
                   Build anything from code to creative content with our powerful AI tools.
                 </p>
                 <button
                   onClick={() => setAuthModalOpen(true)}
-                  className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-8 py-3 rounded-lg hover:from-purple-600 hover:to-pink-600 transition-all duration-200 shadow-lg hover:shadow-xl"
+                  className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-6 md:px-8 py-3 rounded-lg hover:from-purple-600 hover:to-pink-600 transition-all duration-200 shadow-lg hover:shadow-xl text-sm md:text-base"
                 >
                   Get Started
                 </button>

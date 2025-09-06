@@ -233,10 +233,7 @@ function App() {
   return (
     <div className="h-screen flex flex-col bg-white">
       <Header 
-        onNewChat={handleNewChat} 
         user={user}
-        onAuthClick={() => setAuthModalOpen(true)}
-        onSignOut={handleSignOut}
         showMobileMenu={showMobileMenu}
         onToggleMobileMenu={handleToggleMobileMenu}
       />
@@ -252,6 +249,10 @@ function App() {
           isAuthenticated={!!user}
           showMobileMenu={showMobileMenu}
           onCloseMobileMenu={handleCloseMobileMenu}
+          user={user}
+          onNewChat={handleNewChat}
+          onSignOut={handleSignOut}
+          onAuthClick={() => setAuthModalOpen(true)}
         />
         
         <div className="flex-1 flex flex-col">

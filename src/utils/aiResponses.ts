@@ -130,7 +130,6 @@ export async function generateAIResponse(prompt: string, mode: string): Promise<
     // Retry logic for handling rate limits and temporary failures
     let lastError: Error | null = null;
     let response: Response | undefined;
-    let response: Response | undefined;
     
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       try {

@@ -105,7 +105,9 @@ export default function ChatMessage({ message }: ChatMessageProps) {
               language={message.metadata.codeLanguage || 'text'} 
             />
           ) : (
-            <p className="whitespace-pre-wrap text-gray-700">{message.content}</p>
+            <div className="whitespace-pre-wrap text-gray-700 break-words overflow-wrap-anywhere leading-relaxed">
+              {message.content}
+            </div>
           )}
         </div>
         

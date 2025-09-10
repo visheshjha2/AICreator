@@ -103,4 +103,24 @@
   .text-sm {
     font-size: 0.875rem;
   }
+  
+  /* Better code block scrolling on mobile */
+  pre {
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Improve text wrapping and readability on mobile */
+  .break-words {
+    word-break: break-word;
+    overflow-wrap: break-word;
+  }
+  
+  .overflow-wrap-anywhere {
+    overflow-wrap: anywhere;
+  }
+  
+  /* Better line height for mobile reading */
+  .leading-relaxed {
+    line-height: 1.625;
+  }
 }

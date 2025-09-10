@@ -78,7 +78,7 @@ export default function Sidebar({
           ? 'opacity-100 translate-y-0 scale-100' 
           : 'opacity-0 -translate-y-4 scale-95 pointer-events-none'
       }`}>
-        <div className="p-4 max-h-96 overflow-y-auto">
+        <div className="p-4 max-h-96 overflow-y-auto scrollbar-thin">
           <h3 className="text-sm font-semibold text-gray-700 mb-3">AI Capabilities</h3>
           
           {/* New Chat Button for Mobile */}
@@ -118,6 +118,79 @@ export default function Sidebar({
               </button>
             ))}
           </div>
+          
+          {/* Chat History Section for Mobile */}
+          {isAuthenticated && chats.length > 0 && (
+            <div className="mt-6 pt-4 border-t border-gray-200">
+              <div className="flex items-center gap-2 mb-3">
+                <History className="w-4 h-4 text-gray-600" />
+                <h3 className="text-sm font-semibold text-gray-700">Chat History</h3>
+              </div>
+              <div className="space-y-2 max-h-48 overflow-y-auto scrollbar-thin">
+                {chats.slice(0, 5).map((chat) => (
+                  <div
+                    key={chat.id}
+                    className={`group relative p-3 rounded-lg cursor-pointer transition-all duration-200 ${
+                      activeChat === chat.id
+                        ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white'
+                        : 'hover:bg-gray-50 text-gray-700'
+                    }`}
+                    onClick={() => {
+                      onChatSelect(chat.id);
+                      onCloseMobileMenu();
+                    }}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-medium text-sm mb-1 truncate">
+                          {chat.title.length > 20 ? chat.title.substring(0, 20) + '...' : chat.title}
+                        </h4>
+                        <p className={`text-xs mb-1 truncate ${
+                          activeChat === chat.id ? 'text-white/80' : 'text-gray-500'
+                        }`}>
+                          {chat.lastMessage.length > 25 ? chat.lastMessage.substring(0, 25) + '...' : chat.lastMessage}
+                        </p>
+                        <div className="flex items-center justify-between">
+                          <span className={`text-xs ${
+                            activeChat === chat.id ? 'text-white/70' : 'text-gray-400'
+                          }`}>
+                            {(() => {
+                              const now = new Date();
+                              const diff = now.getTime() - chat.timestamp.getTime();
+                              const minutes = Math.floor(diff / (1000 * 60));
+                              const hours = Math.floor(diff / (1000 * 60 * 60));
+                              const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                              
+                              if (minutes < 1) return 'Just now';
+                              if (minutes < 60) return `${minutes}m ago`;
+                              if (hours < 24) return `${hours}h ago`;
+                              if (days === 1) return 'Yesterday';
+                              if (days < 7) return `${days} days ago`;
+                              return chat.timestamp.toLocaleDateString([], { month: 'short', day: 'numeric' });
+                            })()}
+                          </span>
+                          <span className={`px-2 py-1 text-xs rounded-full ${
+                            activeChat === chat.id 
+                              ? 'bg-white/20 text-white' 
+                              : 'bg-gray-100 text-gray-600'
+                          }`}>
+                            {chat.mode}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {chats.length > 5 && (
+                  <div className="text-center py-2">
+                    <span className="text-xs text-gray-500">
+                      +{chats.length - 5} more chats
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
           
           {/* Auth Section for Mobile */}
           <div className="mt-4 pt-4 border-t border-gray-200">

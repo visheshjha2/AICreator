@@ -58,9 +58,9 @@ export default function CodeBlock({ code, language }: CodeBlockProps) {
           Copy
         </button>
       </div>
-      <pre className="bg-gray-900 text-gray-100 p-4 rounded-b-lg overflow-x-auto">
+      <pre className="bg-gray-900 text-gray-100 p-4 rounded-b-lg overflow-x-auto scrollbar-thin">
         <code 
-          className="font-mono text-sm"
+          className="font-mono text-sm whitespace-pre"
           dangerouslySetInnerHTML={{ 
             __html: highlightCode(code, language) 
           }}

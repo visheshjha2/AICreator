@@ -1,24 +1,28 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { localAuth, User } from './utils/localAuth';
+import { localChatStorage } from './utils/localChatStorage';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
 import ChatMessage, { Message } from './components/ChatMessage';
 import PromptInput from './components/PromptInput';
 import LoadingIndicator from './components/LoadingIndicator';
+import AuthModal from './components/AuthModal';
+import { ChatSession } from './components/ChatHistory';
 import { generateAIResponse } from './utils/aiResponses';
 
 function App() {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      type: 'assistant',
-      content: "Hello! I'm your AI Creator assistant. I can help you build anything you can imagine - from web applications and mobile apps to content, designs, and automation workflows. What would you like to create today?",
-      timestamp: new Date(),
-      metadata: { mode: 'Chat Assistant' }
-    }
-  ]);
+  const [user, setUser] = useState<User | null>(null);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
+  const [loading, setLoading] = useState(true);
+  
+  const [messages, setMessages] = useState<Message[]>([]);
   const [activeMode, setActiveMode] = useState('chat');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [chats, setChats] = useState<ChatSession[]>([]);
+  const [activeChat, setActiveChat] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -28,7 +32,72 @@ function App() {
     scrollToBottom();
   }, [messages, isGenerating]);
 
+  useEffect(() => {
+    // Initialize app with error handling
+    const initializeApp = async () => {
+      try {
+        const currentUser = localAuth.getCurrentUser();
+        setUser(currentUser);
+        
+        if (currentUser) {
+          loadUserChats(currentUser.id);
+        } else {
+          setChats([]);
+          setActiveChat(null);
+          setMessages([getWelcomeMessage('chat')]);
+        }
+      } catch (error) {
+        console.error('Error initializing app:', error);
+        setMessages([getWelcomeMessage('chat')]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initializeApp();
+  }, []);
+
+  useEffect(() => {
+    // Initialize with welcome message if no messages
+    if (messages.length === 0) {
+      setMessages([getWelcomeMessage(activeMode)]);
+    }
+  }, [activeMode]);
+
+  const loadUserChats = (userId: string) => {
+    try {
+      const userChats = localChatStorage.getUserChats(userId);
+      setChats(userChats);
+    } catch (error) {
+      console.error('Error loading chats:', error);
+    }
+  };
+
+  const getWelcomeMessage = (mode: string): Message => {
+    const welcomeMessages: Record<string, string> = {
+      chat: "Hello! I'm your AI assistant. I can help you with any questions or conversations. What would you like to know?",
+      code: "I'm ready to help with programming and coding tasks. What do you need help with?",
+      design: "I'm ready to help with UI/UX design. What design challenge can I help with?",
+      content: "I'm ready to help create content. What type of content do you need?",
+      database: "I'm ready to help with database questions. What database topic can I assist with?",
+      automation: "I'm ready to help with automation and scripting. What would you like to automate?"
+    };
+
+    return {
+      id: '1',
+      type: 'assistant',
+      content: welcomeMessages[mode] || welcomeMessages.chat,
+      timestamp: new Date(),
+      metadata: { mode: mode.charAt(0).toUpperCase() + mode.slice(1) }
+    };
+  };
+
   const handlePromptSubmit = async (prompt: string) => {
+    if (!user) {
+      setAuthModalOpen(true);
+      return;
+    }
+
     const userMessage: Message = {
       id: Date.now().toString(),
       type: 'user',
@@ -36,15 +105,35 @@ function App() {
       timestamp: new Date()
     };
 
-    setMessages(prev => [...prev, userMessage]);
+    const newMessages = [...messages, userMessage];
+    setMessages(newMessages);
     setIsGenerating(true);
 
     try {
       const response = await generateAIResponse(prompt, activeMode);
-      setMessages(prev => [...prev, response]);
+      const aiMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        type: 'assistant',
+        content: response.content,
+        timestamp: new Date(),
+        metadata: response.metadata
+      };
+      
+      const finalMessages = [...newMessages, aiMessage];
+      setMessages(finalMessages);
+
+      // Save or update chat session
+      if (activeChat) {
+        localChatStorage.updateChatSession(activeChat, finalMessages);
+      } else {
+        const title = localChatStorage.generateChatTitle(finalMessages);
+        const chatId = localChatStorage.saveChatSession(user.id, title, finalMessages, activeMode);
+        setActiveChat(chatId);
+        loadUserChats(user.id);
+      }
     } catch (error) {
       const errorMessage: Message = {
-        id: Date.now().toString(),
+        id: (Date.now() + 1).toString(),
         type: 'assistant',
         content: "I apologize, but I encountered an error while processing your request. Please try again.",
         timestamp: new Date(),
@@ -57,61 +146,175 @@ function App() {
   };
 
   const handleNewChat = () => {
-    setMessages([
-      {
-        id: '1',
-        type: 'assistant',
-        content: "Hello! I'm your AI Creator assistant. I can help you build anything you can imagine - from web applications and mobile apps to content, designs, and automation workflows. What would you like to create today?",
-        timestamp: new Date(),
-        metadata: { mode: 'Chat Assistant' }
+    setMessages([getWelcomeMessage(activeMode)]);
+    setActiveChat(null);
+  };
+
+  const handleToggleMobileMenu = () => {
+    setShowMobileMenu(!showMobileMenu);
+  };
+
+  const handleCloseMobileMenu = () => {
+    setShowMobileMenu(false);
+  };
+
+  const handleModeChange = async (mode: string) => {
+    // Save current chat if there are messages and user is logged in
+    if (user && messages.length > 1 && !activeChat) {
+      try {
+        const title = localChatStorage.generateChatTitle(messages);
+        localChatStorage.saveChatSession(user.id, title, messages, activeMode);
+        loadUserChats(user.id);
+      } catch (error) {
+        console.error('Error saving chat before mode change:', error);
       }
-    ]);
-  };
+    }
 
-  const handleModeChange = (mode: string) => {
     setActiveMode(mode);
-    const modeMessages: Record<string, string> = {
-      chat: "I'm ready to assist with general questions and conversations. How can I help you?",
-      code: "I'm ready to generate code for any programming task. What would you like me to build?",
-      web: "I'm ready to build web applications and websites. What project should we start with?",
-      design: "I'm ready to create beautiful UI designs and user experiences. What should we design?",
-      content: "I'm ready to write compelling content for your needs. What type of content should I create?",
-      database: "I'm ready to help with database design and optimization. What data system are you building?",
-      automation: "I'm ready to create automation workflows and scripts. What tasks should we automate?"
-    };
-
-    const modeMessage: Message = {
-      id: Date.now().toString(),
-      type: 'assistant',
-      content: modeMessages[mode] || modeMessages.chat,
-      timestamp: new Date(),
-      metadata: { mode: mode.charAt(0).toUpperCase() + mode.slice(1) }
-    };
-
-    setMessages(prev => [...prev, modeMessage]);
+    setMessages([getWelcomeMessage(mode)]);
+    setActiveChat(null);
+    setShowMobileMenu(false); // Close mobile menu when mode changes
   };
+
+  const handleChatSelect = (chatId: string) => {
+    try {
+      const chatMessages = localChatStorage.getChatMessages(chatId);
+      setMessages(chatMessages);
+      setActiveChat(chatId);
+    } catch (error) {
+      console.error('Error loading chat:', error);
+    }
+  };
+
+  const handleChatDelete = (chatId: string) => {
+    try {
+      localChatStorage.deleteChatSession(chatId);
+      if (activeChat === chatId) {
+        setMessages([getWelcomeMessage(activeMode)]);
+        setActiveChat(null);
+      }
+      if (user) {
+        loadUserChats(user.id);
+      }
+    } catch (error) {
+      console.error('Error deleting chat:', error);
+    }
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await localAuth.signOut();
+      setUser(null);
+      setMessages([]);
+      setActiveChat(null);
+      setChats([]);
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
+
+  const handleAuthSuccess = (authenticatedUser: User) => {
+    setUser(authenticatedUser);
+    loadUserChats(authenticatedUser.id);
+    setAuthModalOpen(false);
+  };
+
+  if (loading) {
+    return (
+      <div className="h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen flex flex-col bg-white">
-      <Header onNewChat={handleNewChat} />
+      <Header 
+        user={user}
+        showMobileMenu={showMobileMenu}
+        onToggleMobileMenu={handleToggleMobileMenu}
+      />
       
       <div className="flex-1 flex overflow-hidden">
-        <Sidebar activeMode={activeMode} onModeChange={handleModeChange} />
+        <Sidebar 
+          activeMode={activeMode} 
+          onModeChange={handleModeChange}
+          chats={chats}
+          activeChat={activeChat}
+          onChatSelect={handleChatSelect}
+          onChatDelete={handleChatDelete}
+          isAuthenticated={!!user}
+          showMobileMenu={showMobileMenu}
+          onCloseMobileMenu={handleCloseMobileMenu}
+          user={user}
+          onNewChat={handleNewChat}
+          onSignOut={handleSignOut}
+          onAuthClick={() => setAuthModalOpen(true)}
+        />
         
         <div className="flex-1 flex flex-col">
-          <div className="flex-1 overflow-y-auto">
-            <div className="max-w-4xl mx-auto">
-              {messages.map((message) => (
-                <ChatMessage key={message.id} message={message} />
-              ))}
-              {isGenerating && <LoadingIndicator />}
-              <div ref={messagesEndRef} />
+          {user ? (
+            <>
+              <div className="flex-1 overflow-y-auto">
+                <div className="max-w-4xl mx-auto">
+                  {messages.length === 0 ? (
+                    <div className="flex items-center justify-center h-full">
+                      <div className="text-center">
+                        <h2 className="text-2xl font-bold text-gray-800 mb-4">
+                          Welcome to AI Creator
+                        </h2>
+                        <p className="text-gray-600">
+                          Start a conversation to begin using the AI assistant
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    messages.map((message) => (
+                      <ChatMessage key={message.id} message={message} />
+                    ))
+                  )}
+                  {isGenerating && <LoadingIndicator />}
+                  <div ref={messagesEndRef} />
+                </div>
+              </div>
+              
+              <PromptInput onSubmit={handlePromptSubmit} isGenerating={isGenerating} />
+            </>
+          ) : (
+            <div className="flex-1 flex items-center justify-center">
+              <div className="text-center max-w-md mx-auto p-4 md:p-8">
+                <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <span className="text-2xl">🤖</span>
+                </div>
+                <h2 className="text-2xl md:text-3xl font-bold text-gray-800 mb-4">
+                  Welcome to AI Creator
+                </h2>
+                <p className="text-gray-600 mb-8 text-sm md:text-base">
+                  Sign in to start creating amazing content with AI assistance. 
+                  Build anything from code to creative content with our powerful AI tools.
+                </p>
+                <button
+                  onClick={() => setAuthModalOpen(true)}
+                  className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-6 md:px-8 py-3 rounded-lg hover:from-purple-600 hover:to-pink-600 transition-all duration-200 shadow-lg hover:shadow-xl text-sm md:text-base"
+                >
+                  Get Started
+                </button>
+              </div>
             </div>
-          </div>
-          
-          <PromptInput onSubmit={handlePromptSubmit} isGenerating={isGenerating} />
+          )}
         </div>
       </div>
+
+      <AuthModal
+        isOpen={authModalOpen}
+        onClose={() => setAuthModalOpen(false)}
+        mode={authMode}
+        onModeChange={setAuthMode}
+        onAuthSuccess={handleAuthSuccess}
+      />
     </div>
   );
 }

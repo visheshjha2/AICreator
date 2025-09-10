@@ -1,48 +1,259 @@
 import React from 'react';
-import { Code, Palette, FileText, Globe, Database, Zap, MessageSquare } from 'lucide-react';
+import { Code, Palette, FileText, Globe, Database, Zap, MessageSquare, History, ChevronLeft, ChevronRight, User, LogOut, Sparkles } from 'lucide-react';
+import ChatHistory, { ChatSession } from './ChatHistory';
+import { User as LocalUser } from '../utils/localAuth';
 
 interface SidebarProps {
   activeMode: string;
   onModeChange: (mode: string) => void;
+  chats: ChatSession[];
+  activeChat: string | null;
+  onChatSelect: (chatId: string) => void;
+  onChatDelete: (chatId: string) => void;
+  isAuthenticated: boolean;
+  showMobileMenu: boolean;
+  onCloseMobileMenu: () => void;
+  user: LocalUser | null;
+  onNewChat: () => void;
+  onSignOut: () => void;
+  onAuthClick: () => void;
 }
 
 const modes = [
   { id: 'chat', label: 'Chat Assistant', icon: MessageSquare, description: 'General AI conversation' },
   { id: 'code', label: 'Code Generator', icon: Code, description: 'Generate and debug code' },
-  { id: 'web', label: 'Web Developer', icon: Globe, description: 'Build websites and apps' },
   { id: 'design', label: 'UI Designer', icon: Palette, description: 'Create beautiful interfaces' },
   { id: 'content', label: 'Content Writer', icon: FileText, description: 'Write articles and copy' },
   { id: 'database', label: 'Database Expert', icon: Database, description: 'Design and optimize databases' },
   { id: 'automation', label: 'Automation', icon: Zap, description: 'Create scripts and workflows' },
 ];
 
-export default function Sidebar({ activeMode, onModeChange }: SidebarProps) {
+export default function Sidebar({ 
+  activeMode, 
+  onModeChange, 
+  chats, 
+  activeChat, 
+  onChatSelect, 
+  onChatDelete,
+  isAuthenticated,
+  showMobileMenu,
+  onCloseMobileMenu,
+  user,
+  onNewChat,
+  onSignOut,
+  onAuthClick
+}: SidebarProps) {
+  const handleModeChange = (mode: string) => {
+    onModeChange(mode);
+    onCloseMobileMenu();
+  };
+
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(word => word.charAt(0))
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
+  const getAccountType = () => {
+    // You can customize this logic based on your user data
+    return 'Free';
+  };
+
   return (
-    <div className="w-64 bg-gray-50 border-r border-gray-200 p-4">
-      <div className="space-y-2">
-        <h3 className="text-sm font-semibold text-gray-700 mb-4">AI Capabilities</h3>
-        {modes.map((mode) => (
-          <button
-            key={mode.id}
-            onClick={() => onModeChange(mode.id)}
-            className={`w-full flex items-start gap-3 p-3 rounded-lg text-left transition-all duration-200 ${
-              activeMode === mode.id
-                ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg'
-                : 'hover:bg-white hover:shadow-sm text-gray-700'
-            }`}
-          >
-            <mode.icon className="w-5 h-5 mt-0.5 flex-shrink-0" />
-            <div className="min-w-0">
-              <div className="font-medium text-sm">{mode.label}</div>
-              <div className={`text-xs mt-1 ${
-                activeMode === mode.id ? 'text-white/80' : 'text-gray-500'
-              }`}>
-                {mode.description}
+    <>
+      {/* Mobile Menu Overlay */}
+      {showMobileMenu && (
+        <div 
+          className="md:hidden fixed inset-0 bg-black bg-opacity-50 z-40"
+          onClick={onCloseMobileMenu}
+        />
+      )}
+      
+      {/* Mobile Dropdown Menu */}
+      <div className={`md:hidden fixed top-16 right-4 left-4 bg-white rounded-lg shadow-xl border border-gray-200 z-50 transform transition-all duration-300 ease-in-out ${
+        showMobileMenu 
+          ? 'opacity-100 translate-y-0 scale-100' 
+          : 'opacity-0 -translate-y-4 scale-95 pointer-events-none'
+      }`}>
+        <div className="p-4 max-h-96 overflow-y-auto">
+          <h3 className="text-sm font-semibold text-gray-700 mb-3">AI Capabilities</h3>
+          
+          {/* New Chat Button for Mobile */}
+          {user && (
+            <button
+              onClick={() => {
+                onNewChat();
+                onCloseMobileMenu();
+              }}
+              className="w-full flex items-center gap-2 p-3 mb-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:from-purple-600 hover:to-pink-600 transition-all duration-200 shadow-lg"
+            >
+              <Sparkles className="w-4 h-4" />
+              New Chat
+            </button>
+          )}
+          
+          <div className="space-y-2">
+            {modes.map((mode) => (
+              <button
+                key={mode.id}
+                onClick={() => handleModeChange(mode.id)}
+                className={`w-full flex items-start gap-3 p-3 rounded-lg text-left transition-all duration-200 ${
+                  activeMode === mode.id
+                    ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg'
+                    : 'hover:bg-gray-50 text-gray-700'
+                }`}
+              >
+                <mode.icon className="w-5 h-5 mt-0.5 flex-shrink-0" />
+                <div className="min-w-0">
+                  <div className="font-medium text-sm">{mode.label}</div>
+                  <div className={`text-xs mt-1 ${
+                    activeMode === mode.id ? 'text-white/80' : 'text-gray-500'
+                  }`}>
+                    {mode.description}
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+          
+          {/* Auth Section for Mobile */}
+          <div className="mt-4 pt-4 border-t border-gray-200">
+            {user ? (
+              <div className="space-y-2">
+                <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                  <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white text-sm font-semibold">
+                    {getInitials(user.displayName || user.email)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">
+                      {user.displayName || user.email}
+                    </p>
+                    <p className="text-xs text-gray-500">{getAccountType()}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    onSignOut();
+                    onCloseMobileMenu();
+                  }}
+                  className="w-full flex items-center gap-2 p-3 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                >
+                  <LogOut className="w-4 h-4" />
+                  Sign Out
+                </button>
               </div>
-            </div>
-          </button>
-        ))}
+            ) : (
+              <button
+                onClick={() => {
+                  onAuthClick();
+                  onCloseMobileMenu();
+                }}
+                className="w-full flex items-center gap-2 p-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:from-purple-600 hover:to-pink-600 transition-all duration-200"
+              >
+                <User className="w-4 h-4" />
+                Sign In
+              </button>
+            )}
+          </div>
+        </div>
       </div>
-    </div>
+      
+      {/* Desktop Sidebar */}
+      <div className="hidden md:block w-64 bg-gray-50 border-r border-gray-200 p-4 h-full">
+        <div className="h-full flex flex-col overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+          {/* New Chat Button for Desktop */}
+          {user && (
+            <button
+              onClick={onNewChat}
+              className="flex items-center gap-2 p-3 mb-6 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:from-purple-600 hover:to-pink-600 transition-all duration-200 shadow-lg hover:shadow-xl"
+            >
+              <Sparkles className="w-4 h-4" />
+              New Chat
+            </button>
+          )}
+          
+          {/* AI Capabilities Section */}
+          <div className="mb-8">
+            <h3 className="text-sm font-semibold text-gray-700 mb-4">AI Capabilities</h3>
+            <div className="space-y-2">
+              {modes.map((mode) => (
+                <button
+                  key={mode.id}
+                  onClick={() => onModeChange(mode.id)}
+                  className={`w-full flex items-start gap-3 p-3 rounded-lg text-left transition-all duration-200 ${
+                    activeMode === mode.id
+                      ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg transform scale-105'
+                      : 'hover:bg-white hover:shadow-sm text-gray-700 hover:transform hover:scale-102'
+                  }`}
+                >
+                  <mode.icon className="w-5 h-5 mt-0.5 flex-shrink-0" />
+                  <div className="min-w-0">
+                    <div className="font-medium text-sm">{mode.label}</div>
+                    <div className={`text-xs mt-1 ${
+                      activeMode === mode.id ? 'text-white/80' : 'text-gray-500'
+                    }`}>
+                      {mode.description}
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+          
+          {/* Chat History Section */}
+          {isAuthenticated && (
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-4">
+                <History className="w-4 h-4 text-gray-600" />
+                <h3 className="text-sm font-semibold text-gray-700">Chat History</h3>
+              </div>
+              <ChatHistory
+                chats={chats}
+                activeChat={activeChat}
+                onChatSelect={onChatSelect}
+                onChatDelete={onChatDelete}
+              />
+            </div>
+          )}
+          
+          {/* Account Section at Bottom */}
+          <div className="mt-auto pt-4">
+            {user ? (
+              <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white font-semibold">
+                    {getInitials(user.displayName || user.email)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">
+                      {user.displayName || user.email}
+                    </p>
+                    <p className="text-xs text-gray-500">{getAccountType()}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={onSignOut}
+                  className="w-full flex items-center justify-center gap-2 p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors text-sm"
+                >
+                  <LogOut className="w-4 h-4" />
+                  Sign Out
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={onAuthClick}
+                className="w-full flex items-center justify-center gap-2 p-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:from-purple-600 hover:to-pink-600 transition-all duration-200 shadow-lg"
+              >
+                <User className="w-4 h-4" />
+                Sign In
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </>
   );
 }

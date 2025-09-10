@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Send, Mic, Paperclip } from 'lucide-react';
+import { Send, Paperclip } from 'lucide-react';
 
 interface PromptInputProps {
   onSubmit: (prompt: string) => void;
@@ -17,6 +17,30 @@ export default function PromptInput({ onSubmit, isGenerating }: PromptInputProps
     }
   };
 
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.type.startsWith('image/')) {
+        // Handle image upload
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const imageData = event.target?.result as string;
+          setPrompt(prev => prev + `\n[Image uploaded: ${file.name}]`);
+        };
+        reader.readAsDataURL(file);
+      } else if (file.type.startsWith('text/')) {
+        // Handle text file upload
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const textContent = event.target?.result as string;
+          setPrompt(prev => prev + `\n[File content: ${file.name}]\n${textContent}`);
+        };
+        reader.readAsText(file);
+      } else {
+        setPrompt(prev => prev + `\n[File uploaded: ${file.name}]`);
+      }
+    }
+  };
   return (
     <div className="border-t border-gray-200 p-4 bg-white">
       <form onSubmit={handleSubmit} className="flex items-end gap-3">
@@ -36,17 +60,20 @@ export default function PromptInput({ onSubmit, isGenerating }: PromptInputProps
           />
         </div>
         <div className="flex gap-2">
+          <input
+            type="file"
+            id="file-upload"
+            className="hidden"
+            onChange={handleFileUpload}
+            accept="image/*,text/*,.pdf,.doc,.docx"
+          />
           <button
             type="button"
+            onClick={() => document.getElementById('file-upload')?.click()}
             className="p-3 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+            title="Upload file"
           >
             <Paperclip className="w-5 h-5" />
-          </button>
-          <button
-            type="button"
-            className="p-3 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <Mic className="w-5 h-5" />
           </button>
           <button
             type="submit"

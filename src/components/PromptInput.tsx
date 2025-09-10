@@ -42,7 +42,7 @@ export default function PromptInput({ onSubmit, isGenerating }: PromptInputProps
     }
   };
   return (
-    <div className="border-t border-gray-200 p-4 bg-white">
+    <div className="border-t border-gray-200 p-4 pb-16 bg-white">
       <form onSubmit={handleSubmit} className="flex items-end gap-3">
         <div className="flex-1">
           <textarea

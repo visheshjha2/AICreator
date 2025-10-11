@@ -262,6 +262,8 @@ export async function generateAIResponse(prompt: string, mode: string): Promise<
             ],
             temperature: 0.7,
             max_tokens: 2000
+          }
+          )
           max_tokens: 3000
         });
 

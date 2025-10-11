@@ -208,9 +208,11 @@ export async function generateAIResponse(prompt: string, mode: string): Promise<
   try {
     // Check if API key is available
     if (!API_KEY || API_KEY.trim() === '') {
-      console.warn('No API key configured, using enhanced fallback responses');
+      console.warn('No API key configured, using fallback responses');
       return generateEnhancedFallbackResponse(prompt, mode);
     }
+
+    console.log('Using OpenRouter API with key:', API_KEY.substring(0, 20) + '...');
 
     // Rate limiting: ensure minimum time between requests
     const now = Date.now();
@@ -251,7 +253,7 @@ export async function generateAIResponse(prompt: string, mode: string): Promise<
             messages: [
               {
                 role: 'system',
-                content: systemMessage
+                content: systemMessage + ' Be helpful, accurate, and provide detailed responses. If generating code, make it clean and well-commented.'
               },
               {
                 role: 'user',
@@ -260,7 +262,7 @@ export async function generateAIResponse(prompt: string, mode: string): Promise<
             ],
             temperature: 0.7,
             max_tokens: 2000
-          })
+          max_tokens: 3000
         });
 
         if (response.ok) {
@@ -270,6 +272,8 @@ export async function generateAIResponse(prompt: string, mode: string): Promise<
           if (!aiResponse || aiResponse.trim() === '') {
             throw new Error('Empty response from API');
           }
+
+          console.log('Received AI response:', aiResponse.substring(0, 100) + '...');
 
           // Check if the response contains code
           const hasCode = aiResponse.includes('```');
@@ -346,8 +350,8 @@ export async function generateAIResponse(prompt: string, mode: string): Promise<
           const retryAfter = response.headers.get('Retry-After');
           const waitTime = retryAfter ? parseInt(retryAfter) * 1000 : RETRY_DELAYS[attempt] || 5000;
           
+          console.log(`Rate limited (429). Retrying in ${waitTime}ms...`);
           if (attempt < MAX_RETRIES) {
-            console.log(`Rate limited. Retrying in ${waitTime}ms... (attempt ${attempt + 1}/${MAX_RETRIES + 1})`);
             await sleep(waitTime);
             continue;
           } else {
@@ -355,6 +359,7 @@ export async function generateAIResponse(prompt: string, mode: string): Promise<
           }
         } else if (response.status >= 500) {
           // Server errors - retry with exponential backoff
+          console.log(`Server error (${response.status}). Retrying...`);
           if (attempt < MAX_RETRIES) {
             await sleep(RETRY_DELAYS[attempt]);
             continue;
@@ -362,11 +367,12 @@ export async function generateAIResponse(prompt: string, mode: string): Promise<
         }
         
         // For other errors, don't retry
-        if ((error as Error).message !== 'RATE_LIMIT_EXCEEDED' && response && response.status !== 429) {
-        }
+        console.error(`API Error ${response?.status}:`, await response?.text());
+        break;
         
       } catch (error) {
         lastError = error as Error;
+        console.error('Request error:', error);
         
         // If it's a network error and we have retries left, continue
         if (attempt < MAX_RETRIES && (error as Error).name === 'TypeError') {
@@ -382,27 +388,15 @@ export async function generateAIResponse(prompt: string, mode: string): Promise<
     }
 
     // If we get here, all retries failed
-    console.warn('API unavailable, using fallback response');
+    console.warn('All API attempts failed, using fallback response. Last error:', lastError?.message);
     
     // Use fallback response instead of throwing error
     return generateEnhancedFallbackResponse(prompt, mode);
   } catch (error) {
-    console.error('AI Response Error:', error);
+    console.error('Critical AI Response Error:', error);
     
     // Handle specific error types with user-friendly messages
-    let errorMessage = "I'm sorry, I encountered an error while processing your request. Please try again.";
-    
-    if ((error as Error).message === 'RATE_LIMIT_EXCEEDED') {
-      errorMessage = "I'm currently receiving too many requests. Please wait a moment and try again. The AI service has temporary rate limits to ensure fair usage for all users.";
-    } else if ((error as Error).message.includes('429')) {
-      errorMessage = "The AI service is temporarily busy. Please wait 30 seconds and try again.";
-    } else if ((error as Error).message.includes('500')) {
-      errorMessage = "The AI service is temporarily unavailable. Please try again in a few moments.";
-    } else if ((error as Error).name === 'TypeError') {
-      errorMessage = "Unable to connect to the AI service. Please check your internet connection and try again.";
-    }
-
-    // If it's a critical error, use fallback response
+    // Use fallback response for any critical errors
     return generateEnhancedFallbackResponse(prompt, mode);
   }
 }

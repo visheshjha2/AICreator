@@ -5,82 +5,9 @@ const API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
 // Fallback responses for when API is unavailable
 const fallbackResponses: Record<string, (prompt: string) => string> = {
-  chat: (prompt: string) => {
-    const lowerPrompt = prompt.toLowerCase().trim();
-    
-    // Handle greetings
-    if (lowerPrompt.match(/^(hi|hello|hey|good morning|good afternoon|good evening)$/)) {
-      return "Hello! I'm your AI assistant. How can I help you today? I can assist with coding, design, content creation, database questions, and automation tasks.";
-    }
-    
-    // Handle simple questions
-    if (lowerPrompt.includes('how are you')) {
-      return "I'm doing great, thank you for asking! I'm here and ready to help you with any questions or tasks you have. What would you like to work on today?";
-    }
-    
-    if (lowerPrompt.includes('what can you do')) {
-      return "I can help you with many things! Here are my main capabilities:\n\n• **Chat Assistant** - Answer questions and have conversations\n• **Code Generator** - Write and debug code in various languages\n• **UI Designer** - Create beautiful user interfaces\n• **Content Writer** - Write articles, copy, and creative content\n• **Database Expert** - Design databases and write queries\n• **Automation** - Create scripts and workflows\n\nWhat would you like to try first?";
-    }
-    
-    // Handle math questions
-    const mathMatch = lowerPrompt.match(/what is (\d+)\s*[\+\-\*\/]\s*(\d+)/);
-    if (mathMatch) {
-      const num1 = parseInt(mathMatch[1]);
-      const num2 = parseInt(mathMatch[2]);
-      const operator = lowerPrompt.match(/[\+\-\*\/]/)?.[0];
-      
-      let result;
-      switch (operator) {
-        case '+': result = num1 + num2; break;
-        case '-': result = num1 - num2; break;
-        case '*': result = num1 * num2; break;
-        case '/': result = num2 !== 0 ? num1 / num2 : 'undefined (division by zero)'; break;
-        default: result = 'calculation error';
-      }
-      
-      return `${num1} ${operator} ${num2} = ${result}`;
-    }
-    
-    // Handle general questions with helpful response
-    return `I'd be happy to help you with "${prompt}"! I can assist with various tasks including:\n\n• Answering questions and providing information\n• Writing and editing content\n• Solving problems and brainstorming\n• Explaining concepts and topics\n• Providing recommendations and advice\n\nCould you provide a bit more detail about what specifically you'd like help with?`;
-  },
+  chat: (prompt: string) => `I understand you're asking about: "${prompt}". While I'm currently unable to connect to the AI service, I'd be happy to help once the connection is restored. Please try again in a moment.`,
   
   code: (prompt: string) => {
-    const lowerPrompt = prompt.toLowerCase();
-    
-    // Handle specific programming language requests
-    if (lowerPrompt.includes('python')) {
-      return `Here's a Python example for your request:
-
-\`\`\`python
-# Python code example
-def main():
-    print("Hello, World!")
-    # Add your code logic here
-    
-if __name__ == "__main__":
-    main()
-\`\`\`
-
-This is a basic Python template. Let me know what specific functionality you need and I can provide more detailed code!`;
-    }
-    
-    if (lowerPrompt.includes('javascript') || lowerPrompt.includes('js')) {
-      return `Here's a JavaScript example:
-
-\`\`\`javascript
-// JavaScript code example
-function main() {
-    console.log("Hello, World!");
-    // Add your code logic here
-}
-
-main();
-\`\`\`
-
-Let me know what specific JavaScript functionality you need!`;
-    }
-    
     // Generate basic code examples based on common requests
     if (prompt.toLowerCase().includes('react') || prompt.toLowerCase().includes('component')) {
       return `Here's a basic React component example:
@@ -108,7 +35,7 @@ function MyComponent() {
 export default MyComponent;
 \`\`\`
 
-This is a basic React component example. Let me know what specific functionality you need!`;
+This is a basic example. For more specific code generation, please try again when the AI service is available.`;
     }
     
     if (prompt.toLowerCase().includes('function') || prompt.toLowerCase().includes('javascript')) {
@@ -134,63 +61,31 @@ const result = processData([
 console.log(result);
 \`\`\`
 
-This is a basic JavaScript function example. What specific functionality would you like me to help you implement?`;
+This is a basic example. For more specific code generation, please try again when the AI service is available.`;
     }
     
-    return `I'd be happy to help you with coding! Here's a basic template:
+    return `I'd love to help you with code generation! Here's a basic template to get you started:
 
 \`\`\`javascript
-// Code template
-function processRequest() {
-  // Your implementation here
-  console.log('Processing your request...');
+// Your code will go here
+function yourFunction() {
+  // Implementation details
+  console.log('Hello, World!');
 }
 
-processRequest();
+yourFunction();
 \`\`\`
 
-What programming language and specific functionality would you like help with?`;
+For more specific code generation based on your request: "${prompt}", please try again when the AI service is available.`;
   },
   
-  design: (prompt: string) => `I'd be happy to help you create beautiful UI designs! For "${prompt}", I can provide:
-
-• **Design System Recommendations** - Colors, typography, spacing
-• **Component Layouts** - Headers, cards, forms, navigation
-• **Responsive Design** - Mobile-first approach
-• **CSS/Tailwind Styling** - Modern, clean aesthetics
-• **User Experience** - Intuitive interactions and flows
-
-What specific design element would you like to work on first?`,
+  design: (prompt: string) => `I'd help you create beautiful UI designs! For your request about "${prompt}", I would typically provide detailed design guidance, component suggestions, and styling recommendations. Please try again when the AI service is available.`,
   
-  content: (prompt: string) => `I'd love to help you create engaging content! For "${prompt}", I can assist with:
-
-• **Article Writing** - Blog posts, tutorials, guides
-• **Marketing Copy** - Headlines, descriptions, CTAs
-• **Creative Writing** - Stories, scripts, creative pieces
-• **Technical Documentation** - How-to guides, API docs
-• **Social Media Content** - Posts, captions, hashtags
-
-What type of content would you like me to help you create?`,
+  content: (prompt: string) => `I'd help you create engaging content! For your request about "${prompt}", I would typically provide well-structured writing, copy suggestions, and content strategies. Please try again when the AI service is available.`,
   
-  database: (prompt: string) => `I'd be happy to help with database design and queries! For "${prompt}", I can provide:
-
-• **Database Schema Design** - Tables, relationships, constraints
-• **SQL Queries** - SELECT, INSERT, UPDATE, DELETE operations
-• **Query Optimization** - Indexing, performance tuning
-• **Database Best Practices** - Normalization, security
-• **Different Database Types** - MySQL, PostgreSQL, MongoDB
-
-What specific database task would you like help with?`,
+  database: (prompt: string) => `I'd help you with database design and queries! For your request about "${prompt}", I would typically provide schema designs, optimized queries, and database best practices. Please try again when the AI service is available.`,
   
-  automation: (prompt: string) => `I'd be excited to help you create automation scripts! For "${prompt}", I can provide:
-
-• **Workflow Automation** - Task scheduling, process flows
-• **Scripts** - Python, Bash, PowerShell automation
-• **API Integration** - Connecting different services
-• **Data Processing** - File handling, data transformation
-• **System Administration** - Server management, deployments
-
-What process would you like to automate?`
+  automation: (prompt: string) => `I'd help you create automation scripts! For your request about "${prompt}", I would typically provide workflow automation, scripts, and process optimization solutions. Please try again when the AI service is available.`
 };
 
 // Rate limiting state
@@ -208,11 +103,9 @@ export async function generateAIResponse(prompt: string, mode: string): Promise<
   try {
     // Check if API key is available
     if (!API_KEY || API_KEY.trim() === '') {
-      console.warn('No API key configured, using fallback responses');
+      console.warn('No API key configured, using enhanced fallback responses');
       return generateEnhancedFallbackResponse(prompt, mode);
     }
-
-    console.log('Using OpenRouter API with key:', API_KEY.substring(0, 20) + '...');
 
     // Rate limiting: ensure minimum time between requests
     const now = Date.now();
@@ -253,7 +146,7 @@ export async function generateAIResponse(prompt: string, mode: string): Promise<
             messages: [
               {
                 role: 'system',
-                content: systemMessage + ' Be helpful, accurate, and provide detailed responses. If generating code, make it clean and well-commented.'
+                content: systemMessage
               },
               {
                 role: 'user',
@@ -262,9 +155,7 @@ export async function generateAIResponse(prompt: string, mode: string): Promise<
             ],
             temperature: 0.7,
             max_tokens: 2000
-          }
-          )
-          max_tokens: 3000
+          })
         });
 
         if (response.ok) {
@@ -274,8 +165,6 @@ export async function generateAIResponse(prompt: string, mode: string): Promise<
           if (!aiResponse || aiResponse.trim() === '') {
             throw new Error('Empty response from API');
           }
-
-          console.log('Received AI response:', aiResponse.substring(0, 100) + '...');
 
           // Check if the response contains code
           const hasCode = aiResponse.includes('```');
@@ -352,8 +241,8 @@ export async function generateAIResponse(prompt: string, mode: string): Promise<
           const retryAfter = response.headers.get('Retry-After');
           const waitTime = retryAfter ? parseInt(retryAfter) * 1000 : RETRY_DELAYS[attempt] || 5000;
           
-          console.log(`Rate limited (429). Retrying in ${waitTime}ms...`);
           if (attempt < MAX_RETRIES) {
+            console.log(`Rate limited. Retrying in ${waitTime}ms... (attempt ${attempt + 1}/${MAX_RETRIES + 1})`);
             await sleep(waitTime);
             continue;
           } else {
@@ -361,7 +250,6 @@ export async function generateAIResponse(prompt: string, mode: string): Promise<
           }
         } else if (response.status >= 500) {
           // Server errors - retry with exponential backoff
-          console.log(`Server error (${response.status}). Retrying...`);
           if (attempt < MAX_RETRIES) {
             await sleep(RETRY_DELAYS[attempt]);
             continue;
@@ -369,12 +257,11 @@ export async function generateAIResponse(prompt: string, mode: string): Promise<
         }
         
         // For other errors, don't retry
-        console.error(`API Error ${response?.status}:`, await response?.text());
-        break;
+        if ((error as Error).message !== 'RATE_LIMIT_EXCEEDED' && response && response.status !== 429) {
+        }
         
       } catch (error) {
         lastError = error as Error;
-        console.error('Request error:', error);
         
         // If it's a network error and we have retries left, continue
         if (attempt < MAX_RETRIES && (error as Error).name === 'TypeError') {
@@ -390,15 +277,27 @@ export async function generateAIResponse(prompt: string, mode: string): Promise<
     }
 
     // If we get here, all retries failed
-    console.warn('All API attempts failed, using fallback response. Last error:', lastError?.message);
+    console.warn('API unavailable, using fallback response');
     
     // Use fallback response instead of throwing error
     return generateEnhancedFallbackResponse(prompt, mode);
   } catch (error) {
-    console.error('Critical AI Response Error:', error);
+    console.error('AI Response Error:', error);
     
     // Handle specific error types with user-friendly messages
-    // Use fallback response for any critical errors
+    let errorMessage = "I'm sorry, I encountered an error while processing your request. Please try again.";
+    
+    if ((error as Error).message === 'RATE_LIMIT_EXCEEDED') {
+      errorMessage = "I'm currently receiving too many requests. Please wait a moment and try again. The AI service has temporary rate limits to ensure fair usage for all users.";
+    } else if ((error as Error).message.includes('429')) {
+      errorMessage = "The AI service is temporarily busy. Please wait 30 seconds and try again.";
+    } else if ((error as Error).message.includes('500')) {
+      errorMessage = "The AI service is temporarily unavailable. Please try again in a few moments.";
+    } else if ((error as Error).name === 'TypeError') {
+      errorMessage = "Unable to connect to the AI service. Please check your internet connection and try again.";
+    }
+
+    // If it's a critical error, use fallback response
     return generateEnhancedFallbackResponse(prompt, mode);
   }
 }

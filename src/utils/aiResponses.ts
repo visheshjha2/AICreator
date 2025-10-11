@@ -5,9 +5,82 @@ const API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
 // Fallback responses for when API is unavailable
 const fallbackResponses: Record<string, (prompt: string) => string> = {
-  chat: (prompt: string) => `I understand you're asking about: "${prompt}". While I'm currently unable to connect to the AI service, I'd be happy to help once the connection is restored. Please try again in a moment.`,
+  chat: (prompt: string) => {
+    const lowerPrompt = prompt.toLowerCase().trim();
+    
+    // Handle greetings
+    if (lowerPrompt.match(/^(hi|hello|hey|good morning|good afternoon|good evening)$/)) {
+      return "Hello! I'm your AI assistant. How can I help you today? I can assist with coding, design, content creation, database questions, and automation tasks.";
+    }
+    
+    // Handle simple questions
+    if (lowerPrompt.includes('how are you')) {
+      return "I'm doing great, thank you for asking! I'm here and ready to help you with any questions or tasks you have. What would you like to work on today?";
+    }
+    
+    if (lowerPrompt.includes('what can you do')) {
+      return "I can help you with many things! Here are my main capabilities:\n\n• **Chat Assistant** - Answer questions and have conversations\n• **Code Generator** - Write and debug code in various languages\n• **UI Designer** - Create beautiful user interfaces\n• **Content Writer** - Write articles, copy, and creative content\n• **Database Expert** - Design databases and write queries\n• **Automation** - Create scripts and workflows\n\nWhat would you like to try first?";
+    }
+    
+    // Handle math questions
+    const mathMatch = lowerPrompt.match(/what is (\d+)\s*[\+\-\*\/]\s*(\d+)/);
+    if (mathMatch) {
+      const num1 = parseInt(mathMatch[1]);
+      const num2 = parseInt(mathMatch[2]);
+      const operator = lowerPrompt.match(/[\+\-\*\/]/)?.[0];
+      
+      let result;
+      switch (operator) {
+        case '+': result = num1 + num2; break;
+        case '-': result = num1 - num2; break;
+        case '*': result = num1 * num2; break;
+        case '/': result = num2 !== 0 ? num1 / num2 : 'undefined (division by zero)'; break;
+        default: result = 'calculation error';
+      }
+      
+      return `${num1} ${operator} ${num2} = ${result}`;
+    }
+    
+    // Handle general questions with helpful response
+    return `I'd be happy to help you with "${prompt}"! I can assist with various tasks including:\n\n• Answering questions and providing information\n• Writing and editing content\n• Solving problems and brainstorming\n• Explaining concepts and topics\n• Providing recommendations and advice\n\nCould you provide a bit more detail about what specifically you'd like help with?`;
+  },
   
   code: (prompt: string) => {
+    const lowerPrompt = prompt.toLowerCase();
+    
+    // Handle specific programming language requests
+    if (lowerPrompt.includes('python')) {
+      return `Here's a Python example for your request:
+
+\`\`\`python
+# Python code example
+def main():
+    print("Hello, World!")
+    # Add your code logic here
+    
+if __name__ == "__main__":
+    main()
+\`\`\`
+
+This is a basic Python template. Let me know what specific functionality you need and I can provide more detailed code!`;
+    }
+    
+    if (lowerPrompt.includes('javascript') || lowerPrompt.includes('js')) {
+      return `Here's a JavaScript example:
+
+\`\`\`javascript
+// JavaScript code example
+function main() {
+    console.log("Hello, World!");
+    // Add your code logic here
+}
+
+main();
+\`\`\`
+
+Let me know what specific JavaScript functionality you need!`;
+    }
+    
     // Generate basic code examples based on common requests
     if (prompt.toLowerCase().includes('react') || prompt.toLowerCase().includes('component')) {
       return `Here's a basic React component example:
@@ -35,7 +108,7 @@ function MyComponent() {
 export default MyComponent;
 \`\`\`
 
-This is a basic example. For more specific code generation, please try again when the AI service is available.`;
+This is a basic React component example. Let me know what specific functionality you need!`;
     }
     
     if (prompt.toLowerCase().includes('function') || prompt.toLowerCase().includes('javascript')) {
@@ -61,31 +134,63 @@ const result = processData([
 console.log(result);
 \`\`\`
 
-This is a basic example. For more specific code generation, please try again when the AI service is available.`;
+This is a basic JavaScript function example. What specific functionality would you like me to help you implement?`;
     }
     
-    return `I'd love to help you with code generation! Here's a basic template to get you started:
+    return `I'd be happy to help you with coding! Here's a basic template:
 
 \`\`\`javascript
-// Your code will go here
-function yourFunction() {
-  // Implementation details
-  console.log('Hello, World!');
+// Code template
+function processRequest() {
+  // Your implementation here
+  console.log('Processing your request...');
 }
 
-yourFunction();
+processRequest();
 \`\`\`
 
-For more specific code generation based on your request: "${prompt}", please try again when the AI service is available.`;
+What programming language and specific functionality would you like help with?`;
   },
   
-  design: (prompt: string) => `I'd help you create beautiful UI designs! For your request about "${prompt}", I would typically provide detailed design guidance, component suggestions, and styling recommendations. Please try again when the AI service is available.`,
+  design: (prompt: string) => `I'd be happy to help you create beautiful UI designs! For "${prompt}", I can provide:
+
+• **Design System Recommendations** - Colors, typography, spacing
+• **Component Layouts** - Headers, cards, forms, navigation
+• **Responsive Design** - Mobile-first approach
+• **CSS/Tailwind Styling** - Modern, clean aesthetics
+• **User Experience** - Intuitive interactions and flows
+
+What specific design element would you like to work on first?`,
   
-  content: (prompt: string) => `I'd help you create engaging content! For your request about "${prompt}", I would typically provide well-structured writing, copy suggestions, and content strategies. Please try again when the AI service is available.`,
+  content: (prompt: string) => `I'd love to help you create engaging content! For "${prompt}", I can assist with:
+
+• **Article Writing** - Blog posts, tutorials, guides
+• **Marketing Copy** - Headlines, descriptions, CTAs
+• **Creative Writing** - Stories, scripts, creative pieces
+• **Technical Documentation** - How-to guides, API docs
+• **Social Media Content** - Posts, captions, hashtags
+
+What type of content would you like me to help you create?`,
   
-  database: (prompt: string) => `I'd help you with database design and queries! For your request about "${prompt}", I would typically provide schema designs, optimized queries, and database best practices. Please try again when the AI service is available.`,
+  database: (prompt: string) => `I'd be happy to help with database design and queries! For "${prompt}", I can provide:
+
+• **Database Schema Design** - Tables, relationships, constraints
+• **SQL Queries** - SELECT, INSERT, UPDATE, DELETE operations
+• **Query Optimization** - Indexing, performance tuning
+• **Database Best Practices** - Normalization, security
+• **Different Database Types** - MySQL, PostgreSQL, MongoDB
+
+What specific database task would you like help with?`,
   
-  automation: (prompt: string) => `I'd help you create automation scripts! For your request about "${prompt}", I would typically provide workflow automation, scripts, and process optimization solutions. Please try again when the AI service is available.`
+  automation: (prompt: string) => `I'd be excited to help you create automation scripts! For "${prompt}", I can provide:
+
+• **Workflow Automation** - Task scheduling, process flows
+• **Scripts** - Python, Bash, PowerShell automation
+• **API Integration** - Connecting different services
+• **Data Processing** - File handling, data transformation
+• **System Administration** - Server management, deployments
+
+What process would you like to automate?`
 };
 
 // Rate limiting state

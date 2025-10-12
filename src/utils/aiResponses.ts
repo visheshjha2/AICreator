@@ -249,7 +249,7 @@ export async function generateAIResponse(prompt: string, mode: string): Promise<
             'X-Title': 'AI Assistant'
           },
           body: JSON.stringify({
-            model: 'deepseek/deepseek-r1:free',
+            model: 'google/gemini-2.0-flash-experimental:free',
             messages: [
               {
                 role: 'system',
@@ -355,8 +355,17 @@ export async function generateAIResponse(prompt: string, mode: string): Promise<
             await sleep(waitTime);
             continue;
           } else {
-            console.warn('Rate limit exceeded after all retries, using fallback response');
-            return generateEnhancedFallbackResponse(prompt, mode);
+            console.warn('Rate limit exceeded after all retries');
+            return {
+              id: Date.now().toString(),
+              type: 'assistant',
+              content: `⚠️ **Rate Limit Exceeded**\n\nI'm currently experiencing high demand and have reached the API rate limit. This means too many requests have been made in a short period.\n\n**What this means:**\n• The AI service is temporarily unavailable\n• This is a temporary limitation, not a permanent issue\n• You can try again in a few minutes\n\n**Suggested actions:**\n• Wait 2-3 minutes before trying again\n• Consider upgrading to a paid API plan for higher limits\n• Try breaking complex requests into smaller parts\n\nI apologize for the inconvenience. Please try your request again shortly.`,
+              timestamp: new Date(),
+              metadata: {
+                mode: mode.charAt(0).toUpperCase() + mode.slice(1),
+                error: 'rate_limit_exceeded'
+              }
+            };
           }
         } else if (response.status >= 500) {
           // Server errors - retry with exponential backoff
@@ -364,11 +373,45 @@ export async function generateAIResponse(prompt: string, mode: string): Promise<
           if (attempt < MAX_RETRIES) {
             await sleep(RETRY_DELAYS[attempt]);
             continue;
+          } else {
+            console.warn('Server error after all retries');
+            return {
+              id: Date.now().toString(),
+              type: 'assistant',
+              content: `🔧 **Server Error**\n\nThe AI service is currently experiencing technical difficulties on their end (Error ${response.status}).\n\n**What this means:**\n• The AI service servers are temporarily unavailable\n• This is an issue with the AI provider, not your request\n• The service should be restored automatically\n\n**Suggested actions:**\n• Try again in a few minutes\n• Check the OpenRouter status page for updates\n• Your request was valid, just try it again later\n\nI apologize for the technical difficulties. Please try again shortly.`,
+              timestamp: new Date(),
+              metadata: {
+                mode: mode.charAt(0).toUpperCase() + mode.slice(1),
+                error: 'server_error'
+              }
+            };
           }
+        } else if (response.status === 401) {
+          console.error('Authentication error - invalid API key');
+          return {
+            id: Date.now().toString(),
+            type: 'assistant',
+            content: `🔑 **Authentication Error**\n\nThere's an issue with the API key configuration.\n\n**What this means:**\n• The API key is invalid, expired, or missing\n• The AI service cannot authenticate your request\n• This needs to be fixed in the application settings\n\n**Suggested actions:**\n• Check if your OpenRouter API key is correctly configured\n• Verify the API key hasn't expired\n• Generate a new API key from OpenRouter if needed\n\nFor now, I'll provide basic assistance, but full AI capabilities require a valid API key.`,
+            timestamp: new Date(),
+            metadata: {
+              mode: mode.charAt(0).toUpperCase() + mode.slice(1),
+              error: 'authentication_error'
+            }
+          };
+        } else if (response.status >= 400) {
+          console.error(`Client error (${response.status}):`, await response?.text());
+          return {
+            id: Date.now().toString(),
+            type: 'assistant',
+            content: `❌ **Request Error**\n\nThere was an issue with the request sent to the AI service (Error ${response.status}).\n\n**What this means:**\n• The request format or content was not accepted\n• This could be due to content restrictions or invalid parameters\n• The issue is with how the request was structured\n\n**Suggested actions:**\n• Try rephrasing your request\n• Avoid potentially restricted content\n• Try a simpler or shorter request\n\nI apologize for the issue. Please try rephrasing your request.`,
+            timestamp: new Date(),
+            metadata: {
+              mode: mode.charAt(0).toUpperCase() + mode.slice(1),
+              error: 'client_error'
+            }
+          };
         }
         
-        // For other errors, don't retry
-        console.error(`API Error ${response?.status}:`, await response?.text());
         break;
         
       } catch (error) {
@@ -381,24 +424,51 @@ export async function generateAIResponse(prompt: string, mode: string): Promise<
           continue;
         }
         
-        // If it's not a retryable error, break
-        if ((error as Error).message !== 'RATE_LIMIT_EXCEEDED' && response && response.status !== 429) {
-          break;
+        // If we've exhausted retries for network errors
+        if (attempt >= MAX_RETRIES && (error as Error).name === 'TypeError') {
+          console.warn('Network error after all retries');
+          return {
+            id: Date.now().toString(),
+            type: 'assistant',
+            content: `🌐 **Connection Error**\n\nI'm having trouble connecting to the AI service.\n\n**What this means:**\n• There's a network connectivity issue\n• The AI service might be temporarily unreachable\n• This could be due to internet connection problems\n\n**Suggested actions:**\n• Check your internet connection\n• Try again in a few moments\n• Refresh the page if the issue persists\n\nI apologize for the connection issues. Please try again shortly.`,
+            timestamp: new Date(),
+            metadata: {
+              mode: mode.charAt(0).toUpperCase() + mode.slice(1),
+              error: 'network_error'
+            }
+          };
         }
+        
+        break;
       }
     }
 
-    // If we get here, all retries failed
-    console.warn('All API attempts failed, using fallback response. Last error:', lastError?.message);
+    // If we get here, all retries failed with an unexpected error
+    console.warn('All API attempts failed with unexpected error. Last error:', lastError?.message);
     
-    // Use fallback response instead of throwing error
-    return generateEnhancedFallbackResponse(prompt, mode);
+    return {
+      id: Date.now().toString(),
+      type: 'assistant',
+      content: `⚠️ **Service Temporarily Unavailable**\n\nI'm currently unable to process your request due to technical difficulties.\n\n**What happened:**\n• Multiple connection attempts failed\n• The AI service is temporarily unavailable\n• This is likely a temporary issue\n\n**What you can do:**\n• Try again in a few minutes\n• Check your internet connection\n• Refresh the page if problems persist\n\nI apologize for the inconvenience. I'll be back to full functionality shortly!`,
+      timestamp: new Date(),
+      metadata: {
+        mode: mode.charAt(0).toUpperCase() + mode.slice(1),
+        error: 'service_unavailable'
+      }
+    };
   } catch (error) {
     console.error('Critical AI Response Error:', error);
     
-    // Handle specific error types with user-friendly messages
-    // Use fallback response for any critical errors
-    return generateEnhancedFallbackResponse(prompt, mode);
+    return {
+      id: Date.now().toString(),
+      type: 'assistant',
+      content: `🚨 **Critical Error**\n\nAn unexpected error occurred while processing your request.\n\n**What happened:**\n• A critical system error prevented request processing\n• This is an internal application issue\n• The error has been logged for investigation\n\n**What you can do:**\n• Try refreshing the page\n• Try again with a different request\n• Contact support if the issue persists\n\nI apologize for this technical difficulty. Please try again.`,
+      timestamp: new Date(),
+      metadata: {
+        mode: mode.charAt(0).toUpperCase() + mode.slice(1),
+        error: 'critical_error'
+      }
+    };
   }
 }
 

@@ -355,7 +355,8 @@ export async function generateAIResponse(prompt: string, mode: string): Promise<
             await sleep(waitTime);
             continue;
           } else {
-            throw new Error('RATE_LIMIT_EXCEEDED');
+            console.warn('Rate limit exceeded after all retries, using fallback response');
+            return generateEnhancedFallbackResponse(prompt, mode);
           }
         } else if (response.status >= 500) {
           // Server errors - retry with exponential backoff

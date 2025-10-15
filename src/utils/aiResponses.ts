@@ -1,6 +1,6 @@
 import { Message } from '../components/ChatMessage';
 
-const API_KEY = import.meta.env.VITE_OPENROUTER_API_KEY || '';
+const API_KEY = import.meta.env.VITE_OPENROUTER_API_KEY || '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';
 const API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
 // Fallback responses for when API is unavailable
@@ -249,7 +249,7 @@ export async function generateAIResponse(prompt: string, mode: string): Promise<
             'X-Title': 'AI Assistant'
           },
           body: JSON.stringify({
-            model: 'deepseek/deepseek-r1:free',
+            model: 'google/gemini-2.0-flash-experimental:free',
             messages: [
               {
                 role: 'system',
@@ -260,8 +260,8 @@ export async function generateAIResponse(prompt: string, mode: string): Promise<
                 content: prompt
               }
             ],
-            temperature: 0.3,
-            max_tokens: 1500,
+            temperature: 0.7,
+            max_tokens: 2000,
             stream: false
           })
         });
@@ -467,12 +467,39 @@ Choose based on your relationship with the person and how you genuinely feel!`,
     };
   }
   
-  // Handle math questions
-  const mathMatch = lowerPrompt.match(/what is (\d+)\s*[\+\-\*\/]\s*(\d+)/);
+  // Handle math questions - improved regex to catch direct calculations
+  const mathMatch = lowerPrompt.match(/(?:what is\s+)?(\d+)\s*[\+\-\*\/]\s*(\d+)(?:\s*=\s*\?)?/);
   if (mathMatch) {
     const num1 = parseInt(mathMatch[1]);
     const num2 = parseInt(mathMatch[2]);
-    const operator = lowerPrompt.match(/[\+\-\*\/]/)?.[0];
+    const operator = mathMatch[0].match(/[\+\-\*\/]/)?.[0];
+    
+    let result;
+    switch (operator) {
+      case '+': result = num1 + num2; break;
+      case '-': result = num1 - num2; break;
+      case '*': result = num1 * num2; break;
+      case '/': result = num2 !== 0 ? num1 / num2 : 'undefined (division by zero)'; break;
+      default: result = 'calculation error';
+    }
+    
+    return {
+      id: Date.now().toString(),
+      type: 'assistant',
+      content: `${num1} ${operator} ${num2} = ${result}`,
+      timestamp: new Date(),
+      metadata: {
+        mode: mode.charAt(0).toUpperCase() + mode.slice(1)
+      }
+    };
+  }
+  
+  // Handle math questions in fallback responses too
+  const fallbackMathMatch = lowerPrompt.match(/(?:what is\s+)?(\d+)\s*[\+\-\*\/]\s*(\d+)(?:\s*=\s*\?)?/);
+  if (fallbackMathMatch) {
+    const num1 = parseInt(fallbackMathMatch[1]);
+    const num2 = parseInt(fallbackMathMatch[2]);
+    const operator = fallbackMathMatch[0].match(/[\+\-\*\/]/)?.[0];
     
     let result;
     switch (operator) {

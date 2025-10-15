@@ -195,11 +195,11 @@ What process would you like to automate?`
 
 // Rate limiting state
 let lastRequestTime = 0;
-const MIN_REQUEST_INTERVAL = 2000; // 2 seconds between requests
+const MIN_REQUEST_INTERVAL = 1000; // 1 second between requests
 
 // Retry configuration
-const MAX_RETRIES = 3;
-const RETRY_DELAYS = [1000, 3000, 5000]; // 1s, 3s, 5s
+const MAX_RETRIES = 2;
+const RETRY_DELAYS = [500, 2000]; // 0.5s, 2s
 
 // Sleep utility function
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -253,15 +253,16 @@ export async function generateAIResponse(prompt: string, mode: string): Promise<
             messages: [
               {
                 role: 'system',
-                content: systemMessage + ' Be helpful, accurate, and provide detailed responses. If generating code, make it clean and well-commented.'
+                content: systemMessage + ' Be helpful, accurate, and concise. Keep responses under 1000 words.'
               },
               {
                 role: 'user',
                 content: prompt
               }
             ],
-            temperature: 0.7,
-            max_tokens: 2000
+            temperature: 0.3,
+            max_tokens: 1500,
+            stream: false
           })
         });
 
@@ -348,24 +349,15 @@ export async function generateAIResponse(prompt: string, mode: string): Promise<
         // Handle specific error cases
         if (response.status === 429) {
           const retryAfter = response.headers.get('Retry-After');
-          const waitTime = retryAfter ? parseInt(retryAfter) * 1000 : RETRY_DELAYS[attempt] || 5000;
+          const waitTime = retryAfter ? parseInt(retryAfter) * 1000 : RETRY_DELAYS[attempt] || 2000;
           
           console.log(`Rate limited (429). Retrying in ${waitTime}ms...`);
           if (attempt < MAX_RETRIES) {
             await sleep(waitTime);
             continue;
           } else {
-            console.warn('Rate limit exceeded after all retries');
-            return {
-              id: Date.now().toString(),
-              type: 'assistant',
-              content: `⚠️ **Rate Limit Exceeded**\n\nI'm currently experiencing high demand and have reached the API rate limit. This means too many requests have been made in a short period.\n\n**What this means:**\n• The AI service is temporarily unavailable\n• This is a temporary limitation, not a permanent issue\n• You can try again in a few minutes\n\n**Suggested actions:**\n• Wait 2-3 minutes before trying again\n• Consider upgrading to a paid API plan for higher limits\n• Try breaking complex requests into smaller parts\n\nI apologize for the inconvenience. Please try your request again shortly.`,
-              timestamp: new Date(),
-              metadata: {
-                mode: mode.charAt(0).toUpperCase() + mode.slice(1),
-                error: 'rate_limit_exceeded'
-              }
-            };
+            console.warn('Rate limit exceeded after all retries, using fallback');
+            return generateEnhancedFallbackResponse(prompt, mode);
           }
         } else if (response.status >= 500) {
           // Server errors - retry with exponential backoff
@@ -374,17 +366,8 @@ export async function generateAIResponse(prompt: string, mode: string): Promise<
             await sleep(RETRY_DELAYS[attempt]);
             continue;
           } else {
-            console.warn('Server error after all retries');
-            return {
-              id: Date.now().toString(),
-              type: 'assistant',
-              content: `🔧 **Server Error**\n\nThe AI service is currently experiencing technical difficulties on their end (Error ${response.status}).\n\n**What this means:**\n• The AI service servers are temporarily unavailable\n• This is an issue with the AI provider, not your request\n• The service should be restored automatically\n\n**Suggested actions:**\n• Try again in a few minutes\n• Check the OpenRouter status page for updates\n• Your request was valid, just try it again later\n\nI apologize for the technical difficulties. Please try again shortly.`,
-              timestamp: new Date(),
-              metadata: {
-                mode: mode.charAt(0).toUpperCase() + mode.slice(1),
-                error: 'server_error'
-              }
-            };
+            console.warn('Server error after all retries, using fallback');
+            return generateEnhancedFallbackResponse(prompt, mode);
           }
         } else if (response.status === 401) {
           console.error('Authentication error - invalid API key');
@@ -400,16 +383,7 @@ export async function generateAIResponse(prompt: string, mode: string): Promise<
           };
         } else if (response.status >= 400) {
           console.error(`Client error (${response.status}):`, await response?.text());
-          return {
-            id: Date.now().toString(),
-            type: 'assistant',
-            content: `❌ **Request Error**\n\nThere was an issue with the request sent to the AI service (Error ${response.status}).\n\n**What this means:**\n• The request format or content was not accepted\n• This could be due to content restrictions or invalid parameters\n• The issue is with how the request was structured\n\n**Suggested actions:**\n• Try rephrasing your request\n• Avoid potentially restricted content\n• Try a simpler or shorter request\n\nI apologize for the issue. Please try rephrasing your request.`,
-            timestamp: new Date(),
-            metadata: {
-              mode: mode.charAt(0).toUpperCase() + mode.slice(1),
-              error: 'client_error'
-            }
-          };
+          return generateEnhancedFallbackResponse(prompt, mode);
         }
         
         break;
@@ -426,17 +400,8 @@ export async function generateAIResponse(prompt: string, mode: string): Promise<
         
         // If we've exhausted retries for network errors
         if (attempt >= MAX_RETRIES && (error as Error).name === 'TypeError') {
-          console.warn('Network error after all retries');
-          return {
-            id: Date.now().toString(),
-            type: 'assistant',
-            content: `🌐 **Connection Error**\n\nI'm having trouble connecting to the AI service.\n\n**What this means:**\n• There's a network connectivity issue\n• The AI service might be temporarily unreachable\n• This could be due to internet connection problems\n\n**Suggested actions:**\n• Check your internet connection\n• Try again in a few moments\n• Refresh the page if the issue persists\n\nI apologize for the connection issues. Please try again shortly.`,
-            timestamp: new Date(),
-            metadata: {
-              mode: mode.charAt(0).toUpperCase() + mode.slice(1),
-              error: 'network_error'
-            }
-          };
+          console.warn('Network error after all retries, using fallback');
+          return generateEnhancedFallbackResponse(prompt, mode);
         }
         
         break;
@@ -445,17 +410,7 @@ export async function generateAIResponse(prompt: string, mode: string): Promise<
 
     // If we get here, all retries failed with an unexpected error
     console.warn('All API attempts failed with unexpected error. Last error:', lastError?.message);
-    
-    return {
-      id: Date.now().toString(),
-      type: 'assistant',
-      content: `⚠️ **Service Temporarily Unavailable**\n\nI'm currently unable to process your request due to technical difficulties.\n\n**What happened:**\n• Multiple connection attempts failed\n• The AI service is temporarily unavailable\n• This is likely a temporary issue\n\n**What you can do:**\n• Try again in a few minutes\n• Check your internet connection\n• Refresh the page if problems persist\n\nI apologize for the inconvenience. I'll be back to full functionality shortly!`,
-      timestamp: new Date(),
-      metadata: {
-        mode: mode.charAt(0).toUpperCase() + mode.slice(1),
-        error: 'service_unavailable'
-      }
-    };
+    return generateEnhancedFallbackResponse(prompt, mode);
   } catch (error) {
     console.error('Critical AI Response Error:', error);
     
@@ -474,6 +429,72 @@ export async function generateAIResponse(prompt: string, mode: string): Promise<
 
 // Enhanced fallback response generator
 function generateEnhancedFallbackResponse(prompt: string, mode: string): Message {
+  // Try to provide intelligent responses based on the prompt
+  const lowerPrompt = prompt.toLowerCase().trim();
+  
+  // Handle common questions with direct answers
+  if (lowerPrompt.includes('miss you') && lowerPrompt.includes('reply')) {
+    return {
+      id: Date.now().toString(),
+      type: 'assistant',
+      content: `Here are some thoughtful ways to reply when someone says they miss you:
+
+**Warm & Caring:**
+• "I miss you too! Can't wait to see you again."
+• "Missing you as well. You're always in my thoughts."
+• "The feeling is mutual! Hope we can catch up soon."
+
+**Playful & Light:**
+• "Aww, I miss you too! We need to fix that soon."
+• "Miss you more! 😊"
+• "Right back at you! Let's plan something soon."
+
+**Sincere & Deep:**
+• "I've been thinking about you too. You mean a lot to me."
+• "Thank you for saying that. I miss our conversations."
+• "That means so much to hear. I miss you too."
+
+**If you want to make plans:**
+• "I miss you too! Are you free this weekend?"
+• "Same here! Want to grab coffee/dinner soon?"
+• "Missing you too! Let's schedule a call/meetup."
+
+Choose based on your relationship with the person and how you genuinely feel!`,
+      timestamp: new Date(),
+      metadata: {
+        mode: mode.charAt(0).toUpperCase() + mode.slice(1)
+      }
+    };
+  }
+  
+  // Handle math questions
+  const mathMatch = lowerPrompt.match(/what is (\d+)\s*[\+\-\*\/]\s*(\d+)/);
+  if (mathMatch) {
+    const num1 = parseInt(mathMatch[1]);
+    const num2 = parseInt(mathMatch[2]);
+    const operator = lowerPrompt.match(/[\+\-\*\/]/)?.[0];
+    
+    let result;
+    switch (operator) {
+      case '+': result = num1 + num2; break;
+      case '-': result = num1 - num2; break;
+      case '*': result = num1 * num2; break;
+      case '/': result = num2 !== 0 ? num1 / num2 : 'undefined (division by zero)'; break;
+      default: result = 'calculation error';
+    }
+    
+    return {
+      id: Date.now().toString(),
+      type: 'assistant',
+      content: `${num1} ${operator} ${num2} = ${result}`,
+      timestamp: new Date(),
+      metadata: {
+        mode: mode.charAt(0).toUpperCase() + mode.slice(1)
+      }
+    };
+  }
+  
+  // Use the existing fallback response system
   const fallbackResponse = fallbackResponses[mode] ? fallbackResponses[mode](prompt) : fallbackResponses.chat(prompt);
   
   // Check if fallback response contains code

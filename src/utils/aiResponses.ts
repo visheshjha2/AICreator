@@ -249,7 +249,7 @@ export async function generateAIResponse(prompt: string, mode: string): Promise<
             'X-Title': 'AI Assistant'
           },
           body: JSON.stringify({
-            model: 'google/gemini-pro:free',
+            model: 'google/gemini-2.0-flash-exp:free',
             messages: [
               {
                 role: 'system',

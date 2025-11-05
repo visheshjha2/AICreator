@@ -3,10 +3,6 @@ import { Message } from '../components/ChatMessage';
 const API_KEY = import.meta.env.VITE_OPENROUTER_API_KEY || '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';
 const API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
-// Simple rate limiting
-let lastRequestTime = 0;
-const MIN_REQUEST_INTERVAL = 500; // 0.5 seconds between requests
-
 // Fallback responses for when API is unavailable
 const fallbackResponses: Record<string, (prompt: string) => string> = {
   chat: (prompt: string) => {
@@ -197,12 +193,28 @@ What specific database task would you like help with?`,
 What process would you like to automate?`
 };
 
+// Rate limiting state
+let lastRequestTime = 0;
+const MIN_REQUEST_INTERVAL = 1000; // 1 second between requests
+
+// Retry configuration
+const MAX_RETRIES = 2;
+const RETRY_DELAYS = [500, 2000]; // 0.5s, 2s
+
 // Sleep utility function
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export async function generateAIResponse(prompt: string, mode: string): Promise<Message> {
   try {
-    // Simple rate limiting
+    // Check if API key is available
+    if (!API_KEY || API_KEY.trim() === '') {
+      console.warn('No API key configured, using fallback responses');
+      return generateEnhancedFallbackResponse(prompt, mode);
+    }
+
+    console.log('Using OpenRouter API with key:', API_KEY.substring(0, 20) + '...');
+
+    // Rate limiting: ensure minimum time between requests
     const now = Date.now();
     const timeSinceLastRequest = now - lastRequestTime;
     if (timeSinceLastRequest < MIN_REQUEST_INTERVAL) {
@@ -210,7 +222,7 @@ export async function generateAIResponse(prompt: string, mode: string): Promise<
     }
     lastRequestTime = Date.now();
 
-    // System messages for different modes
+    // Create system message based on mode
     const systemMessages: Record<string, string> = {
       chat: "You are a helpful AI assistant. Provide clear, direct answers to questions. For simple questions like math problems, give straightforward answers.",
       code: "You are an expert programmer. Help with coding questions, debug issues, and generate clean, working code.",
@@ -222,118 +234,196 @@ export async function generateAIResponse(prompt: string, mode: string): Promise<
 
     const systemMessage = systemMessages[mode] || systemMessages.chat;
 
-    // Make API request
-    const response = await fetch(API_URL, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${API_KEY}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': window.location.origin,
-        'X-Title': 'AI Assistant'
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-pro:free',
-        messages: [
-          {
-            role: 'system',
-            content: systemMessage
+    // Retry logic for handling rate limits and temporary failures
+    let lastError: Error | null = null;
+    let response: Response | undefined;
+    
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        response = await fetch(API_URL, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${API_KEY}`,
+            'Content-Type': 'application/json',
+            'HTTP-Referer': window.location.origin,
+            'X-Title': 'AI Assistant'
           },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        temperature: 0.7,
-        max_tokens: 1500,
-        stream: false
-      })
-    });
-
-    if (response.ok) {
-      const data = await response.json();
-      const aiResponse = data.choices[0]?.message?.content;
-      
-      if (!aiResponse || aiResponse.trim() === '') {
-        throw new Error('Empty response from API');
-      }
-
-      // Check if the response contains code
-      const hasCode = aiResponse.includes('```');
-      let files: Array<{ name: string; content: string; language: string }> = [];
-
-      if (hasCode) {
-        // Extract code blocks and create files
-        const codeBlocks = aiResponse.match(/```(\w+)?\n([\s\S]*?)```/g);
-        if (codeBlocks) {
-          codeBlocks.forEach((block, index) => {
-            const match = block.match(/```(\w+)?\n([\s\S]*?)```/);
-            if (match) {
-              const language = match[1] || 'text';
-              const content = match[2].trim();
-              
-              // Generate appropriate filename based on language
-              const extensions: Record<string, string> = {
-                javascript: 'js',
-                typescript: 'ts',
-                html: 'html',
-                css: 'css',
-                python: 'py',
-                java: 'java',
-                cpp: 'cpp',
-                c: 'c',
-                php: 'php',
-                ruby: 'rb',
-                go: 'go',
-                rust: 'rs',
-                sql: 'sql',
-                json: 'json',
-                xml: 'xml',
-                yaml: 'yml'
-              };
-
-              const extension = extensions[language.toLowerCase()] || 'txt';
-              let filename = `generated_${index + 1}.${extension}`;
-              
-              // For web development, use more descriptive names
-              if (mode === 'web') {
-                if (language.toLowerCase() === 'html') {
-                  filename = 'index.html';
-                } else if (language.toLowerCase() === 'css') {
-                  filename = 'style.css';
-                } else if (language.toLowerCase() === 'javascript') {
-                  filename = 'script.js';
-                }
+          body: JSON.stringify({
+            model: 'google/gemini-pro:free',
+            messages: [
+              {
+                role: 'system',
+                content: systemMessage + ' Be helpful, accurate, and concise. Keep responses under 1000 words.'
+              },
+              {
+                role: 'user',
+                content: prompt
               }
-              
-              files.push({
-                name: filename,
-                content: content,
-                language: language
+            ],
+            temperature: 0.7,
+            max_tokens: 2000,
+            stream: false
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const aiResponse = data.choices[0]?.message?.content;
+          
+          if (!aiResponse || aiResponse.trim() === '') {
+            throw new Error('Empty response from API');
+          }
+
+          console.log('Received AI response:', aiResponse.substring(0, 100) + '...');
+
+          // Check if the response contains code
+          const hasCode = aiResponse.includes('```');
+          let files: Array<{ name: string; content: string; language: string }> = [];
+
+          if (hasCode) {
+            // Extract code blocks and create files
+            const codeBlocks = aiResponse.match(/```(\w+)?\n([\s\S]*?)```/g);
+            if (codeBlocks) {
+              codeBlocks.forEach((block, index) => {
+                const match = block.match(/```(\w+)?\n([\s\S]*?)```/);
+                if (match) {
+                  const language = match[1] || 'text';
+                  const content = match[2].trim();
+                  
+                  // Generate appropriate filename based on language
+                  const extensions: Record<string, string> = {
+                    javascript: 'js',
+                    typescript: 'ts',
+                    html: 'html',
+                    css: 'css',
+                    python: 'py',
+                    java: 'java',
+                    cpp: 'cpp',
+                    c: 'c',
+                    php: 'php',
+                    ruby: 'rb',
+                    go: 'go',
+                    rust: 'rs',
+                    sql: 'sql',
+                    json: 'json',
+                    xml: 'xml',
+                    yaml: 'yml'
+                  };
+
+                  const extension = extensions[language.toLowerCase()] || 'txt';
+                  let filename = `generated_${index + 1}.${extension}`;
+                  
+                  // For web development, use more descriptive names
+                  if (mode === 'web') {
+                    if (language.toLowerCase() === 'html') {
+                      filename = 'index.html';
+                    } else if (language.toLowerCase() === 'css') {
+                      filename = 'style.css';
+                    } else if (language.toLowerCase() === 'javascript') {
+                      filename = 'script.js';
+                    }
+                  }
+                  
+                  files.push({
+                    name: filename,
+                    content: content,
+                    language: language
+                  });
+                }
               });
             }
-          });
-        }
-      }
+          }
 
-      return {
-        id: Date.now().toString(),
-        type: 'assistant',
-        content: aiResponse,
-        timestamp: new Date(),
-        metadata: {
-          mode: mode.charAt(0).toUpperCase() + mode.slice(1),
-          files: files.length > 0 ? files : undefined
+          return {
+            id: Date.now().toString(),
+            type: 'assistant',
+            content: aiResponse,
+            timestamp: new Date(),
+            metadata: {
+              mode: mode.charAt(0).toUpperCase() + mode.slice(1),
+              files: files.length > 0 ? files : undefined
+            }
+          };
         }
-      };
-    } else {
-      // If API fails, use fallback
-      console.warn('API request failed, using fallback response');
-      return generateEnhancedFallbackResponse(prompt, mode);
+
+        // Handle specific error cases
+        if (response.status === 429) {
+          const retryAfter = response.headers.get('Retry-After');
+          const waitTime = retryAfter ? parseInt(retryAfter) * 1000 : RETRY_DELAYS[attempt] || 2000;
+          
+          console.log(`Rate limited (429). Retrying in ${waitTime}ms...`);
+          if (attempt < MAX_RETRIES) {
+            await sleep(waitTime);
+            continue;
+          } else {
+            console.warn('Rate limit exceeded after all retries, using fallback');
+            return generateEnhancedFallbackResponse(prompt, mode);
+          }
+        } else if (response.status >= 500) {
+          // Server errors - retry with exponential backoff
+          console.log(`Server error (${response.status}). Retrying...`);
+          if (attempt < MAX_RETRIES) {
+            await sleep(RETRY_DELAYS[attempt]);
+            continue;
+          } else {
+            console.warn('Server error after all retries, using fallback');
+            return generateEnhancedFallbackResponse(prompt, mode);
+          }
+        } else if (response.status === 401) {
+          console.error('Authentication error - invalid API key');
+          return {
+            id: Date.now().toString(),
+            type: 'assistant',
+            content: `🔑 **Authentication Error**\n\nThere's an issue with the API key configuration.\n\n**What this means:**\n• The API key is invalid, expired, or missing\n• The AI service cannot authenticate your request\n• This needs to be fixed in the application settings\n\n**Suggested actions:**\n• Check if your OpenRouter API key is correctly configured\n• Verify the API key hasn't expired\n• Generate a new API key from OpenRouter if needed\n\nFor now, I'll provide basic assistance, but full AI capabilities require a valid API key.`,
+            timestamp: new Date(),
+            metadata: {
+              mode: mode.charAt(0).toUpperCase() + mode.slice(1),
+              error: 'authentication_error'
+            }
+          };
+        } else if (response.status >= 400) {
+          console.error(`Client error (${response.status}):`, await response?.text());
+          return generateEnhancedFallbackResponse(prompt, mode);
+        }
+        
+        break;
+        
+      } catch (error) {
+        lastError = error as Error;
+        console.error('Request error:', error);
+        
+        // If it's a network error and we have retries left, continue
+        if (attempt < MAX_RETRIES && (error as Error).name === 'TypeError') {
+          await sleep(RETRY_DELAYS[attempt]);
+          continue;
+        }
+        
+        // If we've exhausted retries for network errors
+        if (attempt >= MAX_RETRIES && (error as Error).name === 'TypeError') {
+          console.warn('Network error after all retries, using fallback');
+          return generateEnhancedFallbackResponse(prompt, mode);
+        }
+        
+        break;
+      }
     }
 
-  } catch (error) {
-    console.warn('API error, using fallback response:', error);
+    // If we get here, all retries failed with an unexpected error
+    console.warn('All API attempts failed with unexpected error. Last error:', lastError?.message);
     return generateEnhancedFallbackResponse(prompt, mode);
+  } catch (error) {
+    console.error('Critical AI Response Error:', error);
+    
+    return {
+      id: Date.now().toString(),
+      type: 'assistant',
+      content: `🚨 **Critical Error**\n\nAn unexpected error occurred while processing your request.\n\n**What happened:**\n• A critical system error prevented request processing\n• This is an internal application issue\n• The error has been logged for investigation\n\n**What you can do:**\n• Try refreshing the page\n• Try again with a different request\n• Contact support if the issue persists\n\nI apologize for this technical difficulty. Please try again.`,
+      timestamp: new Date(),
+      metadata: {
+        mode: mode.charAt(0).toUpperCase() + mode.slice(1),
+        error: 'critical_error'
+      }
+    };
   }
 }
 
@@ -377,12 +467,39 @@ Choose based on your relationship with the person and how you genuinely feel!`,
     };
   }
   
-  // Enhanced math handling - catches direct calculations and "what is" questions
-  const mathMatch = lowerPrompt.match(/(?:what\s+is\s+)?(\d+)\s*[\+\-\*\/]\s*(\d+)(?:\s*=\s*\?)?/);
+  // Handle math questions - improved regex to catch direct calculations
+  const mathMatch = lowerPrompt.match(/(?:what is\s+)?(\d+)\s*[\+\-\*\/]\s*(\d+)(?:\s*=\s*\?)?/);
   if (mathMatch) {
     const num1 = parseInt(mathMatch[1]);
     const num2 = parseInt(mathMatch[2]);
     const operator = mathMatch[0].match(/[\+\-\*\/]/)?.[0];
+    
+    let result;
+    switch (operator) {
+      case '+': result = num1 + num2; break;
+      case '-': result = num1 - num2; break;
+      case '*': result = num1 * num2; break;
+      case '/': result = num2 !== 0 ? num1 / num2 : 'undefined (division by zero)'; break;
+      default: result = 'calculation error';
+    }
+    
+    return {
+      id: Date.now().toString(),
+      type: 'assistant',
+      content: `${num1} ${operator} ${num2} = ${result}`,
+      timestamp: new Date(),
+      metadata: {
+        mode: mode.charAt(0).toUpperCase() + mode.slice(1)
+      }
+    };
+  }
+  
+  // Handle math questions in fallback responses too
+  const fallbackMathMatch = lowerPrompt.match(/(?:what is\s+)?(\d+)\s*[\+\-\*\/]\s*(\d+)(?:\s*=\s*\?)?/);
+  if (fallbackMathMatch) {
+    const num1 = parseInt(fallbackMathMatch[1]);
+    const num2 = parseInt(fallbackMathMatch[2]);
+    const operator = fallbackMathMatch[0].match(/[\+\-\*\/]/)?.[0];
     
     let result;
     switch (operator) {

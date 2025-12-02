@@ -3,22 +3,7 @@ import { Message } from '../components/ChatMessage';
 const API_KEY = import.meta.env.VITE_OPENROUTER_API_KEY || '';
 const API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
-export async function generateAIResponse(prompt: string, mode: string): Promise<Message> {
-  if (!API_KEY || API_KEY.trim() === '') {
-    throw new Error('API key not configured');
-  }
-
-  const systemMessages: Record<string, string> = {
-    chat: "You are a helpful AI assistant. Answer all questions accurately and thoroughly.",
-    code: "You are an expert programmer. Help with coding questions, debug issues, and generate clean, working code.",
-    design: "You are a UI/UX design expert. Help create beautiful, user-friendly interfaces and provide design guidance.",
-    content: "You are a content creation expert. Help write articles, copy, marketing content, and creative writing.",
-    database: "You are a database expert. Help with database design, queries, optimization, and data management.",
-    automation: "You are an automation expert. Help create scripts, workflows, and automated solutions."
-  };
-
-  const systemMessage = systemMessages[mode] || systemMessages.chat;
-
+async function callAPI(model: string, systemMessage: string, prompt: string): Promise<string> {
   const response = await fetch(API_URL, {
     method: 'POST',
     headers: {
@@ -28,7 +13,7 @@ export async function generateAIResponse(prompt: string, mode: string): Promise<
       'X-Title': 'AI Assistant'
     },
     body: JSON.stringify({
-      model: 'google/gemini-2.0-flash-exp:free',
+      model,
       messages: [
         {
           role: 'system',
@@ -47,8 +32,9 @@ export async function generateAIResponse(prompt: string, mode: string): Promise<
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    console.error('API Error:', response.status, errorData);
-    throw new Error(`API Error: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
+    const errorMessage = errorData.error?.message || 'Unknown error';
+    console.error(`API Error with ${model}:`, response.status, errorMessage);
+    throw new Error(`${response.status}: ${errorMessage}`);
   }
 
   const data = await response.json();
@@ -56,6 +42,50 @@ export async function generateAIResponse(prompt: string, mode: string): Promise<
 
   if (!aiResponse || aiResponse.trim() === '') {
     throw new Error('Empty response from API');
+  }
+
+  return aiResponse;
+}
+
+export async function generateAIResponse(prompt: string, mode: string): Promise<Message> {
+  if (!API_KEY || API_KEY.trim() === '') {
+    throw new Error('API key not configured');
+  }
+
+  const systemMessages: Record<string, string> = {
+    chat: "You are a helpful AI assistant. Answer all questions accurately and thoroughly.",
+    code: "You are an expert programmer. Help with coding questions, debug issues, and generate clean, working code.",
+    design: "You are a UI/UX design expert. Help create beautiful, user-friendly interfaces and provide design guidance.",
+    content: "You are a content creation expert. Help write articles, copy, marketing content, and creative writing.",
+    database: "You are a database expert. Help with database design, queries, optimization, and data management.",
+    automation: "You are an automation expert. Help create scripts, workflows, and automated solutions."
+  };
+
+  const systemMessage = systemMessages[mode] || systemMessages.chat;
+
+  let aiResponse: string | null = null;
+  const modelsToTry = [
+    'google/gemini-2.0-flash-exp:free',
+    'meta-llama/llama-2-7b-chat:free',
+    'mistralai/mistral-7b-instruct:free'
+  ];
+
+  let lastError: Error | null = null;
+
+  for (const model of modelsToTry) {
+    try {
+      aiResponse = await callAPI(model, systemMessage, prompt);
+      console.log(`Successfully used model: ${model}`);
+      break;
+    } catch (error) {
+      lastError = error as Error;
+      console.warn(`Model ${model} failed: ${lastError.message}`);
+      continue;
+    }
+  }
+
+  if (!aiResponse) {
+    throw lastError || new Error('All models failed');
   }
 
   // Extract code blocks if present

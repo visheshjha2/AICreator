@@ -1,13 +1,22 @@
 import { Message } from '../components/ChatMessage';
 
-const API_KEY = import.meta.env.VITE_OPENROUTER_API_KEY || '';
 const API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
+function getAPIKey(): string {
+  const envKey = import.meta.env.VITE_OPENROUTER_API_KEY;
+  if (envKey && envKey.trim()) {
+    return envKey;
+  }
+  const localKey = localStorage.getItem('openrouter_api_key');
+  return localKey || '';
+}
+
 async function callAPI(model: string, systemMessage: string, prompt: string): Promise<string> {
+  const apiKey = getAPIKey();
   const response = await fetch(API_URL, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${API_KEY}`,
+      'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
       'HTTP-Referer': window.location.origin,
       'X-Title': 'AI Assistant'
@@ -48,8 +57,9 @@ async function callAPI(model: string, systemMessage: string, prompt: string): Pr
 }
 
 export async function generateAIResponse(prompt: string, mode: string): Promise<Message> {
-  if (!API_KEY || API_KEY.trim() === '') {
-    throw new Error('API key not configured');
+  const apiKey = getAPIKey();
+  if (!apiKey || apiKey.trim() === '') {
+    throw new Error('API key not configured. Please add your OpenRouter API key in Settings.');
   }
 
   const systemMessages: Record<string, string> = {

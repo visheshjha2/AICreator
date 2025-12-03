@@ -10,33 +10,51 @@ A powerful AI assistant application built with React, TypeScript, and Tailwind C
 - 📱 **Responsive Design**: Works on desktop and mobile
 - ⚡ **Fast Performance**: Built with Vite for optimal speed
 - 🎨 **Beautiful UI**: Modern design with smooth animations
+- 🔄 **Intelligent Model Fallback**: Automatically tries multiple AI models if one is rate-limited
 
 ## Quick Start
+
+### Local Development
 
 1. **Install Dependencies**
    ```bash
    npm install
    ```
 
-2. **Start Development Server**
+2. **Configure API Key (Recommended)**
+   - Copy `.env.example` to `.env`
+   - Get a free API key from [OpenRouter](https://openrouter.ai/keys)
+   - Add your key to the `.env` file:
+     ```
+     VITE_OPENROUTER_API_KEY=sk-or-v1-your_key_here
+     ```
+
+3. **Start Development Server**
    ```bash
    npm run dev
    ```
 
-3. **Open in Browser**
-   - The app will automatically open at `http://localhost:5173`
-   - If it doesn't open automatically, click the URL in your terminal
+4. **Open in Browser**
+   - The app will open at `http://localhost:5173`
 
-## Configuration (Optional)
+### Stackblitz or GitHub Deployment
 
-The app works out of the box with intelligent fallback responses. For enhanced AI capabilities:
+If you're running this on Stackblitz, GitHub Codespaces, or any hosted platform:
 
-1. Copy `.env.example` to `.env`
-2. Get an API key from [OpenRouter](https://openrouter.ai/keys)
-3. Add your key to the `.env` file:
-   ```
-   VITE_OPENROUTER_API_KEY=your_key_here
-   ```
+1. **Get an API Key**
+   - Sign up for free at [OpenRouter](https://openrouter.ai/keys)
+   - Copy your API key
+
+2. **Add API Key via Settings**
+   - Click the **Settings** button (gear icon) in the header
+   - Paste your OpenRouter API key
+   - Click **Save**
+
+3. **Start Chatting**
+   - Your API key is saved locally in your browser
+   - Start using the AI assistant immediately
+
+**Note**: The app includes automatic fallback to multiple free AI models (Gemini, Llama, Mistral) if one is rate-limited.
 
 ## Available Scripts
 
@@ -103,11 +121,29 @@ If build fails:
 2. Run `npm install` again
 3. Try `npm run build`
 
-### API Issues
+### AI Responses Not Working
 If AI responses aren't working:
-1. The app uses fallback responses by default
-2. For enhanced responses, add an OpenRouter API key to `.env`
-3. Check console for any API-related errors
+
+1. **Missing API Key Error**
+   - Click the Settings button (gear icon) in the header
+   - Get a free API key from [OpenRouter](https://openrouter.ai/keys)
+   - Paste your key in the Settings modal
+   - Click Save
+
+2. **Rate Limiting Issues**
+   - The app automatically tries multiple AI models
+   - If you see rate limit errors, wait a few moments and try again
+   - Consider getting a paid OpenRouter plan for higher limits
+
+3. **Check Browser Console**
+   - Press F12 to open developer tools
+   - Go to Console tab to see detailed error messages
+
+### API Key Storage
+- Your API key is stored **locally** in your browser using localStorage
+- It is **never** sent to our servers
+- It is only used to communicate directly with OpenRouter API
+- Clearing browser cache/data will remove the saved key
 
 ## License
 

@@ -1,17 +1,19 @@
 import React from 'react';
-import { Bot, MoreVertical, X } from 'lucide-react';
+import { Bot, MoreVertical, X, Settings } from 'lucide-react';
 import { User as LocalUser } from '../utils/localAuth';
 
 interface HeaderProps {
   user: LocalUser | null;
   showMobileMenu: boolean;
   onToggleMobileMenu: () => void;
+  onSettingsClick?: () => void;
 }
 
-export default function Header({ 
-  user, 
-  showMobileMenu, 
-  onToggleMobileMenu 
+export default function Header({
+  user,
+  showMobileMenu,
+  onToggleMobileMenu,
+  onSettingsClick
 }: HeaderProps) {
   return (
     <header className="bg-white border-b border-gray-200 px-6 py-4">
@@ -26,19 +28,29 @@ export default function Header({
           </div>
         </div>
         
-        {/* Mobile Three-Dot Menu */}
-        <div className="md:hidden">
+        {/* Settings & Mobile Menu */}
+        <div className="flex items-center gap-2">
           <button
-            onClick={onToggleMobileMenu}
+            onClick={onSettingsClick}
             className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
-            aria-label="Toggle menu"
+            title="API Settings"
           >
-            {showMobileMenu ? (
-              <X className="w-5 h-5" />
-            ) : (
-              <MoreVertical className="w-5 h-5" />
-            )}
+            <Settings className="w-5 h-5" />
           </button>
+
+          <div className="md:hidden">
+            <button
+              onClick={onToggleMobileMenu}
+              className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
+              aria-label="Toggle menu"
+            >
+              {showMobileMenu ? (
+                <X className="w-5 h-5" />
+              ) : (
+                <MoreVertical className="w-5 h-5" />
+              )}
+            </button>
+          </div>
         </div>
       </div>
     </header>

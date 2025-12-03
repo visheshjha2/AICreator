@@ -7,6 +7,7 @@ import ChatMessage, { Message } from './components/ChatMessage';
 import PromptInput from './components/PromptInput';
 import LoadingIndicator from './components/LoadingIndicator';
 import AuthModal from './components/AuthModal';
+import SettingsModal from './components/SettingsModal';
 import { ChatSession } from './components/ChatHistory';
 import { generateAIResponse } from './utils/aiResponses';
 
@@ -14,8 +15,9 @@ function App() {
   const [user, setUser] = useState<User | null>(null);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
+  const [settingsModalOpen, setSettingsModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
-  
+
   const [messages, setMessages] = useState<Message[]>([]);
   const [activeMode, setActiveMode] = useState('chat');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -132,10 +134,19 @@ function App() {
         loadUserChats(user.id);
       }
     } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      let content = "I apologize, but I encountered an error while processing your request.";
+
+      if (errorMsg.includes('API key not configured')) {
+        content = "API key not configured. Please click the Settings button (gear icon) and add your OpenRouter API key.";
+      } else if (errorMsg.includes('429')) {
+        content = "The AI service is temporarily rate-limited. Please try again in a few moments.";
+      }
+
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         type: 'assistant',
-        content: "I apologize, but I encountered an error while processing your request. Please try again.",
+        content,
         timestamp: new Date(),
         metadata: { mode: activeMode }
       };
@@ -232,10 +243,11 @@ function App() {
 
   return (
     <div className="h-screen flex flex-col bg-white">
-      <Header 
+      <Header
         user={user}
         showMobileMenu={showMobileMenu}
         onToggleMobileMenu={handleToggleMobileMenu}
+        onSettingsClick={() => setSettingsModalOpen(true)}
       />
       
       <div className="flex-1 flex overflow-hidden">
@@ -314,6 +326,11 @@ function App() {
         mode={authMode}
         onModeChange={setAuthMode}
         onAuthSuccess={handleAuthSuccess}
+      />
+
+      <SettingsModal
+        isOpen={settingsModalOpen}
+        onClose={() => setSettingsModalOpen(false)}
       />
     </div>
   );
